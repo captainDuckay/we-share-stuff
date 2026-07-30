@@ -86,6 +86,14 @@ On a Surface:
 - **Placement Slots** are labeled, addressable regions. Many Items may share one Slot. Real-world dimensions are optional but preferred.
 - **Structural Drawings** are non-addressable geometry for visual structure only; they cannot be linked as Typical Placement.
 
+Geometry model (product level, not API schema):
+
+- A Surface uses an abstract unit canvas; optional surface physical size provides real-world scale.
+- Placement Slots are axis-aligned rectangles only.
+- Structural Drawings are axis-aligned rectangles or lines/polylines only.
+- Optional physical dimensions may attach to Surface and/or Slot; canvas geometry is authoritative for layout (no save-blocking size mismatch).
+- Fixed draw order: Structural Drawings behind, Placement Slots in front.
+
 Only the owning User of the Typical Location edits Surfaces, Slots, and Structural Drawings. Members never edit them.
 
 After Reservation acceptance, the borrowing User may see the Item's Placement Slot plus its parent Placement Surface—not the owner's full multi-surface atlas. Unrelated Surfaces and the editor remain private.
