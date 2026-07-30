@@ -1,0 +1,99 @@
+<div class="vc">
+  <header class="vc__header">
+    <div>
+      <p class="vc__eyebrow">Typical Location · {{ store.location().name }}</p>
+      <h2>Addresses first</h2>
+      <p>
+        Placement Slot labels are what borrowers hear (“E27”, “Blue bin”). The sketch is a map of those addresses —
+        structure has no names.
+      </p>
+    </div>
+  </header>
+
+  <div class="vc__layout">
+    <section class="vc__list" aria-label="Slot labels at this location">
+      <div class="vc__surfaces">
+        @for (surface of store.location().surfaces; track surface.id) {
+          <button
+            type="button"
+            [class.vc__surface--active]="store.activeSurfaceId() === surface.id"
+            (click)="store.selectSurface(surface.id)"
+          >
+            {{ surface.name }}
+          </button>
+        }
+        <button type="button" class="vc__dashed" (click)="store.addSurface()">+ Surface</button>
+      </div>
+
+      <form class="vc__add" (submit)="$event.preventDefault(); addLabeledSlot()">
+        <label>
+          New slot label
+          <input [(ngModel)]="newLabel" name="newLabel" placeholder="e.g. Blue bin" autocomplete="off" />
+        </label>
+        <button type="submit">Add to active surface</button>
+      </form>
+
+      <ul class="vc__slots">
+        @for (slot of allSlots(); track slot.id) {
+          <li>
+            <button
+              type="button"
+              class="vc__slot-row"
+              [class.vc__slot-row--active]="store.selectedSlot()?.id === slot.id"
+              (click)="selectSlot(slot.surfaceId, slot.id)"
+            >
+              <strong>{{ slot.label }}</strong>
+              <span>{{ slot.surfaceName }}</span>
+            </button>
+          </li>
+        } @empty {
+          <li class="vc__empty">No slots yet — add a label, then nudge it on the map.</li>
+        }
+      </ul>
+
+      @if (store.selectedSlot(); as slot) {
+        <div class="vc__edit">
+          <label>
+            Rename label
+            <input
+              [ngModel]="slot.label"
+              (ngModelChange)="renameSelected($event)"
+              name="rename"
+            />
+          </label>
+          <p class="vc__hint">
+            Preferred size left empty on purpose here — labels lead; cm is optional polish.
+          </p>
+          <button type="button" (click)="store.deleteSelection()">Delete slot</button>
+        </div>
+      }
+    </section>
+
+    <section class="vc__map" aria-label="Surface map">
+      <div class="vc__map-tools">
+        <button
+          type="button"
+          [class.vc__tool--active]="store.tool() === 'select'"
+          (click)="setOutlineMode(false)"
+        >
+          Arrange slots
+        </button>
+        <button
+          type="button"
+          [class.vc__tool--active]="store.tool() === 'structure-rect' || store.tool() === 'structure-line'"
+          (click)="setOutlineMode(true)"
+        >
+          Draw outline
+        </button>
+        @if (store.tool() === 'structure-rect' || store.tool() === 'structure-line') {
+          <button type="button" (click)="store.setTool('structure-line')">Line</button>
+          <button type="button" (click)="store.setTool('structure-rect')">Box</button>
+        }
+      </div>
+      <app-prototype-surface-canvas />
+      <p class="vc__hint">
+        Active: {{ store.activeSurface().name }}. Dashed shapes = structure (no labels). Solid = slots.
+      </p>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,129 @@
+.vb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 1rem);
+}
+
+.vb__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3, 0.75rem);
+  align-items: flex-start;
+}
+
+.vb__eyebrow {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+
+.vb__header h2 {
+  margin: 0.2rem 0;
+}
+
+.vb__header p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--muted-foreground);
+}
+
+.vb__cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+}
+
+.vb__card {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3, 0.75rem);
+  align-items: center;
+  padding: var(--space-4, 1rem);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 0.375rem);
+}
+
+.vb__card h3 {
+  margin: 0 0 0.35rem;
+}
+
+.vb__card p {
+  margin: 0.15rem 0;
+}
+
+.vb__meta,
+.vb__labels {
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.vb--editor {
+  min-height: 70vh;
+}
+
+.vb__editor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+}
+
+.vb__editor-bar h2 {
+  margin: 0;
+  flex: 1;
+  font-size: 1.1rem;
+}
+
+.vb__back {
+  border-style: dashed;
+}
+
+.vb__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+}
+
+.vb__tool--active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.vb__stage {
+  flex: 1;
+}
+
+.vb__stage ::ng-deep .proto-canvas {
+  max-height: min(60vh, 32rem);
+  min-height: 20rem;
+}
+
+.vb__dock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+  padding: var(--space-3, 0.75rem);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 0.375rem);
+}
+
+.vb__dock p {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+.vb__label-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 12rem;
+  font-size: 0.85rem;
+}

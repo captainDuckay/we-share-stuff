@@ -1,0 +1,91 @@
+<div class="va">
+  <header class="va__header">
+    <div>
+      <p class="va__eyebrow">Typical Location · {{ store.location().name }}</p>
+      <h2>Placement Surfaces</h2>
+    </div>
+    <p class="va__hint">Click canvas to place with the active tool. Drag to move; corner handle resizes.</p>
+  </header>
+
+  <div class="va__tabs" role="tablist" aria-label="Surfaces">
+    @for (surface of store.location().surfaces; track surface.id) {
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="store.activeSurfaceId() === surface.id"
+        [class.va__tab--active]="store.activeSurfaceId() === surface.id"
+        (click)="onSelectSurface(surface.id)"
+      >
+        {{ surface.name }}
+        <span class="va__tab-meta">{{ surface.slots.length }} slots</span>
+      </button>
+    }
+    <button type="button" class="va__add-surface" (click)="onAddSurface()">+ Surface</button>
+  </div>
+
+  <div class="va__tools" role="toolbar" aria-label="Draw tools">
+    @for (tool of tools; track tool.id) {
+      <button
+        type="button"
+        [class.va__tool--active]="store.tool() === tool.id"
+        (click)="store.setTool(tool.id)"
+      >
+        {{ tool.label }}
+      </button>
+    }
+    <button type="button" class="va__danger" [disabled]="!store.selection()" (click)="store.deleteSelection()">
+      Delete
+    </button>
+  </div>
+
+  <div class="va__body">
+    <app-prototype-surface-canvas />
+    <aside class="va__aside" aria-label="Properties">
+      <h3>Surface</h3>
+      <label>
+        Name
+        <input [(ngModel)]="surfaceNameDraft" (focus)="syncDrafts()" (change)="applySurfaceName()" />
+      </label>
+      <fieldset>
+        <legend>Size cm <span class="va__optional">(preferred)</span></legend>
+        <div class="va__row">
+          <label>
+            W
+            <input [(ngModel)]="surfaceW" inputmode="decimal" (focus)="syncDrafts()" (change)="applySurfacePhysical()" />
+          </label>
+          <label>
+            H
+            <input [(ngModel)]="surfaceH" inputmode="decimal" (focus)="syncDrafts()" (change)="applySurfacePhysical()" />
+          </label>
+        </div>
+      </fieldset>
+
+      @if (store.selectedSlot(); as slot) {
+        <h3>Slot · findability</h3>
+        <label>
+          Label
+          <input [(ngModel)]="slotLabelDraft" (focus)="syncDrafts()" (change)="applySlotLabel()" />
+        </label>
+        <fieldset>
+          <legend>Size cm <span class="va__optional">(preferred)</span></legend>
+          <div class="va__row">
+            <label>
+              W
+              <input [(ngModel)]="slotW" inputmode="decimal" (focus)="syncDrafts()" (change)="applySlotPhysical()" />
+            </label>
+            <label>
+              H
+              <input [(ngModel)]="slotH" inputmode="decimal" (focus)="syncDrafts()" (change)="applySlotPhysical()" />
+            </label>
+          </div>
+        </fieldset>
+        <p class="va__note">Stable id: <code>{{ slot.id }}</code> (not shown to borrowers)</p>
+      } @else if (store.selection()) {
+        <h3>Structural drawing</h3>
+        <p class="va__note">Visual only — no label, never linkable as Typical Placement.</p>
+      } @else {
+        <p class="va__note">Select a slot to edit its label. Structure has no address language.</p>
+      }
+    </aside>
+  </div>
+</div>

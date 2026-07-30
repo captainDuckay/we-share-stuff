@@ -1,0 +1,28 @@
+.proto-banner {
+  margin-bottom: var(--space-4, 1rem);
+  padding: var(--space-3, 0.75rem);
+  background: light-dark(oklch(95% 0.06 85), oklch(30% 0.05 70));
+  border: 1px dashed var(--warning);
+  border-radius: var(--radius-sm, 0.375rem);
+  font-size: 0.9rem;
+}
+
+.proto-banner code {
+  font-size: 0.85em;
+}
+
+.proto-state {
+  margin-top: var(--space-5, 1.5rem);
+  padding: var(--space-3, 0.75rem);
+  background: var(--muted);
+  border-radius: var(--radius-sm, 0.375rem);
+  font-size: 0.85rem;
+}
+
+.proto-state pre {
+  max-height: 16rem;
+  overflow: auto;
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

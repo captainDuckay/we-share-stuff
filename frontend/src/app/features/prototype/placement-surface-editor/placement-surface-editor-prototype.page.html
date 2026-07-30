@@ -1,0 +1,38 @@
+<app-page-layout
+  pageTitle="PROTOTYPE · Placement Surface editor"
+  description="Throwaway UI for wayfinder ticket: Owner Placement Surface editor intent. Not product code."
+  backLink="/my-page"
+  backLabel="My page"
+>
+  <div class="proto-banner">
+    <strong>Prototype</strong>
+    — in-memory only · reload wipes state · flip variants with the bottom bar or
+    <code>?variant=A|B|C</code>
+    ·
+    <a routerLink="/prototype/placement-surface-editor" [queryParams]="{ variant: 'A' }">A</a>
+    ·
+    <a routerLink="/prototype/placement-surface-editor" [queryParams]="{ variant: 'B' }">B</a>
+    ·
+    <a routerLink="/prototype/placement-surface-editor" [queryParams]="{ variant: 'C' }">C</a>
+  </div>
+
+  @switch (variant()) {
+    @case ('B') {
+      <app-prototype-variant-b />
+    }
+    @case ('C') {
+      <app-prototype-variant-c />
+    }
+    @default {
+      <app-prototype-variant-a />
+    }
+  }
+
+  <details class="proto-state">
+    <summary>Scene state (prototype debug)</summary>
+    <pre>{{ store.snapshot() | json }}</pre>
+    <p>Last action: {{ store.lastAction() }}</p>
+  </details>
+</app-page-layout>
+
+<app-prototype-switcher [variants]="variants" />

@@ -41,6 +41,15 @@ export const routes: Routes = [
   },
   { path: 'sharing', redirectTo: 'home' },
   { path: 'browse-shared-items', redirectTo: 'browse' },
+  // PROTOTYPE ONLY (wayfinder #7) — throwaway; keep off product navigation
+  {
+    path: 'prototype/placement-surface-editor',
+    loadComponent: () =>
+      import('./features/prototype/placement-surface-editor/placement-surface-editor-prototype.page').then(
+        ({ PlacementSurfaceEditorPrototypePage }) => PlacementSurfaceEditorPrototypePage,
+      ),
+    title: 'PROTOTYPE · Placement Surface editor',
+  },
   { path: '', pathMatch: 'full', redirectTo: 'home' },
   { path: '**', redirectTo: 'home' },
 ];

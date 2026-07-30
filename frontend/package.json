@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "prototype:placement-surface-editor": "ng serve --host 127.0.0.1 --port 4200 --open /prototype/placement-surface-editor?variant=A",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"

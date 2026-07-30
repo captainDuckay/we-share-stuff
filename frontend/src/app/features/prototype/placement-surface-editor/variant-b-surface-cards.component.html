@@ -1,0 +1,88 @@
+@if (!editing()) {
+  <div class="vb">
+    <header class="vb__header">
+      <div>
+        <p class="vb__eyebrow">Typical Location · {{ store.location().name }}</p>
+        <h2>Where do things live here?</h2>
+        <p>Each Placement Surface is one wall, shed, or bank of storage. Open one to sketch structure and label slots.</p>
+      </div>
+      <button type="button" (click)="store.addSurface(); openEditor(store.activeSurfaceId())">
+        Add surface
+      </button>
+    </header>
+
+    <ul class="vb__cards">
+      @for (surface of store.location().surfaces; track surface.id) {
+        <li class="vb__card">
+          <div>
+            <h3>{{ surface.name }}</h3>
+            <p>
+              {{ surface.slots.length }} labeled slot{{ surface.slots.length === 1 ? '' : 's' }}
+              ·
+              {{ surface.structures.length }} structure piece{{ surface.structures.length === 1 ? '' : 's' }}
+            </p>
+            @if (surface.physical.widthCm || surface.physical.heightCm) {
+              <p class="vb__meta">
+                Preferred size:
+                {{ surface.physical.widthCm ?? '—' }} × {{ surface.physical.heightCm ?? '—' }} cm
+              </p>
+            } @else {
+              <p class="vb__meta">No physical size (optional)</p>
+            }
+            @if (surface.slots.length) {
+              <p class="vb__labels">
+                Labels:
+                @for (slot of surface.slots; track slot.id; let last = $last) {
+                  <strong>{{ slot.label }}</strong>{{ last ? '' : ', ' }}
+                }
+              </p>
+            }
+          </div>
+          <button type="button" (click)="openEditor(surface.id)">Open sketch</button>
+        </li>
+      }
+    </ul>
+  </div>
+} @else {
+  <div class="vb vb--editor">
+    <header class="vb__editor-bar">
+      <button type="button" class="vb__back" (click)="closeEditor()">← Surfaces</button>
+      <h2>{{ store.activeSurface().name }}</h2>
+      <div class="vb__tools" role="toolbar">
+        @for (tool of tools; track tool.id) {
+          <button
+            type="button"
+            [class.vb__tool--active]="store.tool() === tool.id"
+            (click)="store.setTool(tool.id)"
+          >
+            {{ tool.label }}
+          </button>
+        }
+      </div>
+    </header>
+
+    <div class="vb__stage">
+      <app-prototype-surface-canvas />
+    </div>
+
+    <footer class="vb__dock">
+      @if (store.selectedSlot(); as slot) {
+        <label class="vb__label-field">
+          Slot label (findability)
+          <input
+            [ngModel]="slotLabelDraft || slot.label"
+            (ngModelChange)="slotLabelDraft = $event"
+            (focus)="onSelectSlotSync()"
+            (change)="applySlotLabel()"
+          />
+        </label>
+        <button type="button" (click)="store.deleteSelection()">Remove slot</button>
+      } @else if (store.selection()) {
+        <p>Structure selected — visual only, no label.</p>
+        <button type="button" (click)="store.deleteSelection()">Remove structure</button>
+      } @else {
+        <p>Tap canvas to place · drag to arrange · dimensions stay optional in a later polish pass.</p>
+      }
+    </footer>
+  </div>
+}
