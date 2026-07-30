@@ -10,6 +10,8 @@ This repository replaces the previous split remotes:
 ## Layout
 
 ```text
+CONTEXT.md   Domain glossary and product language
+docs/        Product intent, ADRs, decision records, architecture seams
 backend/     FastAPI + PostgreSQL API (uv, Alembic, Docker Compose)
 frontend/    Angular app (pnpm)
 ```
@@ -18,12 +20,13 @@ There is no monorepo build framework (Nx, Turborepo, etc.). Each package keeps i
 
 ## Product and domain docs
 
-Canonical product language and decisions live with the app docs today:
+Canonical product language and decisions live at the repository root:
 
-- [`frontend/CONTEXT.md`](./frontend/CONTEXT.md) — glossary and domain language
-- [`frontend/docs/product-intent.md`](./frontend/docs/product-intent.md) — product direction and non-goals
-- [`frontend/docs/architecture/seams.md`](./frontend/docs/architecture/seams.md) — architecture seams
-- [`frontend/docs/decision-records/`](./frontend/docs/decision-records/) — decision history
+- [`CONTEXT.md`](./CONTEXT.md) — glossary and domain language
+- [`docs/product-intent.md`](./docs/product-intent.md) — product direction and non-goals
+- [`docs/architecture/seams.md`](./docs/architecture/seams.md) — architecture seams
+- [`docs/decision-records/`](./docs/decision-records/) — decision history
+- [`docs/adr/`](./docs/adr/) — architecture decision records
 
 ## Local development
 

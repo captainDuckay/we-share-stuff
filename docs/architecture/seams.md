@@ -1,6 +1,6 @@
 # Domain and Architecture Seams
 
-This document records the seams features should respect as We Share Stuff grows. `CONTEXT.md` defines the glossary; this file explains where responsibilities should split.
+This document records the seams features should respect as We Share Stuff grows. [`CONTEXT.md`](../../CONTEXT.md) at the repository root defines the glossary; this file explains where responsibilities should split.
 
 The foundational question-and-answer history behind these seams is recorded in [`../decision-records/0001-domain-grilling.md`](../decision-records/0001-domain-grilling.md). My Page and User identity decisions are recorded in [`../decision-records/0003-my-page.md`](../decision-records/0003-my-page.md).
 

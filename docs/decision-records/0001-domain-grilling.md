@@ -288,7 +288,7 @@ Accepted.
 
 Future implementation should compare new features against:
 
-- `CONTEXT.md` for canonical language.
+- Repository-root `CONTEXT.md` for canonical language.
 - `docs/product-intent.md` for product direction and non-goals.
 - `docs/architecture/seams.md` for boundaries and implementation seams.
 

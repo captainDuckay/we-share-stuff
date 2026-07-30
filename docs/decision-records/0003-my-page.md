@@ -104,7 +104,7 @@ Accepted.
 
 ## Resulting implementation guidance
 
-The implementation should cover both the frontend and `../backend` and should include:
+The implementation should cover both `frontend/` and `backend/` and should include:
 
 - a database migration for required, non-unique Display Name and optional Profile Photo data;
 - registration, session, and own-profile APIs that return and update Display Name and Profile Photo without using email as public identity;

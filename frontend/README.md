@@ -4,12 +4,12 @@ Private user inventory MVP built with Angular 22 and the sibling FastAPI service
 
 ## Product and domain docs
 
-Use these docs to keep future features aligned with the intended model:
+Product docs live at the monorepo root (not frontend-specific):
 
-- [`CONTEXT.md`](./CONTEXT.md) — glossary and canonical domain language.
-- [`docs/product-intent.md`](./docs/product-intent.md) — product direction, non-goals, and feature-fit criteria.
-- [`docs/architecture/seams.md`](./docs/architecture/seams.md) — domain and architecture seams to preserve while implementing features.
-- [`docs/decision-records/0001-domain-grilling.md`](./docs/decision-records/0001-domain-grilling.md) — question-and-answer record of the domain grilling session.
+- [`CONTEXT.md`](../CONTEXT.md) — glossary and canonical domain language.
+- [`docs/product-intent.md`](../docs/product-intent.md) — product direction, non-goals, and feature-fit criteria.
+- [`docs/architecture/seams.md`](../docs/architecture/seams.md) — domain and architecture seams to preserve while implementing features.
+- [`docs/decision-records/0001-domain-grilling.md`](../docs/decision-records/0001-domain-grilling.md) — question-and-answer record of the domain grilling session.
 
 Current implementation is intentionally User-bound. Do not add Household-bound product logic until household collaboration becomes an implemented feature.
 
