@@ -1,0 +1,86 @@
+:host {
+  display: block;
+}
+
+.owned-item-editor {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.owned-item-editor__header {
+  align-items: center;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.owned-item-editor__header h1,
+.owned-item-editor__status {
+  margin: 0;
+}
+
+.owned-item-editor__form,
+.owned-item-editor__photos {
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--card-foreground);
+  padding: var(--space-4);
+}
+
+.owned-item-editor__form,
+.sharing-page__form-label {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sharing-page__button,
+.sharing-page__form-control {
+  font: inherit;
+}
+
+.sharing-page__photo-list {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(var(--layout-photo-min), 1fr));
+  list-style: none;
+  padding: 0;
+}
+
+.sharing-page__error {
+  color: var(--destructive-text);
+}
+
+.sharing-page__meta {
+  color: var(--muted-foreground);
+}
+
+.owned-item-editor__form h2,
+.owned-item-editor__photos h2 {
+  margin-block-start: 0;
+}
+
+.owned-item-editor__textarea {
+  min-height: var(--size-visual-fallback);
+  resize: vertical;
+}
+
+.owned-item-editor__photo,
+.owned-item-editor__photo-selection {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.owned-item-editor__photo img,
+.owned-item-editor__photo-selection img {
+  aspect-ratio: var(--aspect-photo);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  width: 100%;
+}
+
+.owned-item-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

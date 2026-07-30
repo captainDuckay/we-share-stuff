@@ -1,0 +1,61 @@
+<section class="profile-section" aria-labelledby="profile-heading">
+  <div>
+    <h2 id="profile-heading">Profile</h2>
+    <p>Your Display Name and Profile Photo identify you in Sharing Groups and Reservations.</p>
+  </div>
+
+  @if (session.user(); as user) {
+    <div class="profile-section__identity">
+      <app-user-avatar
+        class="profile-section__avatar"
+        [displayName]="user.displayName"
+        [photoUrl]="selectedPhotoPreviewUrl() || user.profilePhotoUrl"
+      />
+      <div>
+        <strong>{{ user.displayName }}</strong>
+        <p class="profile-section__email">{{ user.email }}</p>
+      </div>
+    </div>
+
+    <form class="profile-section__form" (submit)="submitProfile(); $event.preventDefault()">
+      <label>
+        Display Name
+        <input [formField]="profileForm.displayName" autocomplete="name" />
+      </label>
+      @if (profileForm.displayName().touched() && profileForm.displayName().errors().length) {
+        <p class="profile-section__error">{{ profileForm.displayName().errors()[0].message }}</p>
+      }
+      <button type="submit" [disabled]="saving() || photoBusy()">
+        {{ saving() ? 'Saving…' : 'Save Display Name' }}
+      </button>
+    </form>
+
+    <div class="profile-section__photo-controls">
+      <label>
+        Profile Photo
+        <input type="file" [accept]="photoAccept" (change)="selectPhoto($event)" />
+      </label>
+      @if (selectedPhoto()) {
+        <button type="button" [disabled]="photoBusy() || saving()" (click)="uploadPhoto()">
+          {{ photoBusy() ? 'Uploading…' : user.profilePhotoUrl ? 'Replace photo' : 'Upload photo' }}
+        </button>
+        <button type="button" [disabled]="photoBusy() || saving()" (click)="cancelPhotoSelection()">
+          Cancel
+        </button>
+      }
+      @if (user.profilePhotoUrl && !selectedPhoto()) {
+        <button type="button" [disabled]="photoBusy() || saving()" (click)="removePhoto()">
+          Remove photo
+        </button>
+      }
+    </div>
+  }
+
+  @if (error()) {
+    <p class="profile-section__error" role="alert">{{ error() }}</p>
+  }
+  @if (photoError()) {
+    <p class="profile-section__error" role="alert">{{ photoError() }}</p>
+  }
+  <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
+</section>

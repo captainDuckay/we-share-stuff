@@ -1,0 +1,59 @@
+.theme-preference-section {
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--card-foreground);
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+
+.theme-preference-section h2,
+.theme-preference-section p {
+  margin-top: 0;
+}
+
+.theme-preference-section fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.theme-preference-section legend {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.theme-preference-section__options {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--layout-card-min)), 1fr));
+}
+
+.theme-preference-section__option {
+  align-items: flex-start;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.theme-preference-section__option:has(input:checked) {
+  background: var(--accent);
+  border-color: var(--ring);
+  color: var(--accent-foreground);
+}
+
+.theme-preference-section__option input {
+  accent-color: var(--primary);
+  flex: 0 0 auto;
+  margin: var(--space-1) 0 0;
+}
+
+.theme-preference-section__description {
+  color: var(--muted-foreground);
+  display: block;
+  margin-top: var(--space-1);
+}

@@ -1,0 +1,9 @@
+:host {
+  block-size: 1em;
+  display: inline-flex;
+  flex: 0 0 auto;
+  inline-size: 1em;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: -0.125em;
+}

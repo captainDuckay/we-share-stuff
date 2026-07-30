@@ -1,0 +1,5 @@
+@if (photoUrl()) {
+  <img class="user-avatar__photo" [src]="photoUrl()!" alt="" />
+} @else {
+  <span class="user-avatar__initials" aria-hidden="true">{{ initials() }}</span>
+}

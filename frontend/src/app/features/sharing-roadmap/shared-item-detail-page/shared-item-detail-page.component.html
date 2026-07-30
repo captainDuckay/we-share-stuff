@@ -1,0 +1,19 @@
+<app-page-layout [pageTitle]="pageTitle()" [backLink]="backLink()" [backLabel]="backLabel()">
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">{{ error() }}</p>
+  }
+  @if (ownedItem(); as itemToEdit) {
+    <app-owned-item-editor
+      [item]="itemToEdit"
+      [sharedItem]="item()"
+      [currentUserId]="session.user()?.id"
+      (itemUpdated)="updateOwnedItem($event)"
+    />
+  } @else if (item(); as sharedItem) {
+    <app-shared-item-detail-card
+      [item]="sharedItem"
+      [currentUserId]="session.user()?.id"
+      (reservationRequested)="requestReservation($event.item, $event.startLocal, $event.endLocal)"
+    />
+  }
+</app-page-layout>

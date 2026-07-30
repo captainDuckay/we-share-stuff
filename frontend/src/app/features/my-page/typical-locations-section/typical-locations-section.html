@@ -1,0 +1,95 @@
+<section class="locations-section" aria-labelledby="locations-heading">
+  <div class="locations-section__heading">
+    <div>
+      <h2 id="locations-heading">Typical Locations</h2>
+      <p>Save the places where your Items are normally kept.</p>
+    </div>
+    <button type="button" [disabled]="saving()" (click)="startCreating()">Add location</button>
+  </div>
+
+  @if (formOpen()) {
+    <form class="locations-section__form" (submit)="submitLocation(); $event.preventDefault()">
+      <h3>{{ editingId() ? 'Edit Typical Location' : 'Add Typical Location' }}</h3>
+      <label>
+        Name
+        <input [formField]="locationForm.name" autocomplete="off" />
+      </label>
+      @if (locationForm.name().touched() && locationForm.name().errors().length) {
+        <p class="locations-section__error">{{ locationForm.name().errors()[0].message }}</p>
+      }
+      <label>
+        Address or directions <span>(optional)</span>
+        <textarea [formField]="locationForm.details" rows="3"></textarea>
+      </label>
+      @if (locationForm.details().touched() && locationForm.details().errors().length) {
+        <p class="locations-section__error">{{ locationForm.details().errors()[0].message }}</p>
+      }
+      <label>
+        IANA timezone
+        <input [formField]="locationForm.timezone" autocomplete="off" />
+      </label>
+      @if (locationForm.timezone().touched() && locationForm.timezone().errors().length) {
+        <p class="locations-section__error">{{ locationForm.timezone().errors()[0].message }}</p>
+      }
+      @if (formError()) {
+        <p class="locations-section__error" role="alert">{{ formError() }}</p>
+      }
+      <div class="locations-section__actions">
+        <button type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save' }}</button>
+        <button type="button" [disabled]="saving()" (click)="cancelEditing()">Cancel</button>
+      </div>
+    </form>
+  }
+
+  @if (loading()) {
+    <p role="status">Loading Typical Locations…</p>
+  } @else if (locations().length === 0) {
+    <p>No Typical Locations yet. Add the first place where your Items are normally kept.</p>
+  } @else {
+    <ul class="locations-section__list">
+      @for (location of locations(); track location.id) {
+        <li class="locations-section__card">
+          <div>
+            <h3>{{ location.name }}</h3>
+            @if (location.details) {
+              <p>{{ location.details }}</p>
+            }
+            <p>{{ location.timezone }}</p>
+            <p>
+              {{ location.assignedItemCount }}
+              {{ location.assignedItemCount === 1 ? 'Item' : 'Items' }} assigned
+            </p>
+          </div>
+          <div class="locations-section__actions">
+            @if (location.assignedItemCount > 0) {
+              <a routerLink="/my-stuff" [queryParams]="{ typicalLocationId: location.id }"
+                >View items</a
+              >
+            }
+            <button type="button" [disabled]="saving()" (click)="startEditing(location)">
+              Edit
+            </button>
+            <button
+              type="button"
+              [disabled]="location.assignedItemCount > 0 || deletingId() === location.id"
+              [attr.title]="
+                location.assignedItemCount > 0
+                  ? 'Reassign Items before deleting this location.'
+                  : null
+              "
+              (click)="remove(location)"
+            >
+              {{ deletingId() === location.id ? 'Deleting…' : 'Delete' }}
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (error()) {
+    <p class="locations-section__error" role="alert">{{ error() }}</p>
+    <button type="button" (click)="load()">Retry</button>
+  }
+  <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
+</section>

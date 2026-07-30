@@ -1,0 +1,56 @@
+<div class="owned-item-summary__actions">
+  <button class="sharing-page__button" type="button" (click)="editRequested.emit()">
+    Edit Item
+  </button>
+</div>
+
+@if (sharedItemView(); as sharedItem) {
+  <app-shared-item-detail-card [item]="sharedItem" [currentUserId]="currentUserId()" />
+} @else {
+  <article class="shared-item-detail-card">
+    <div class="shared-item-detail-card__image-container">
+      @if (photoUrl(); as itemPhotoUrl) {
+        <img
+          class="shared-item-detail-card__image"
+          [src]="itemPhotoUrl"
+          [alt]="'Item Photo for ' + item().name"
+        />
+      } @else {
+        <div class="shared-item-detail-card__visual-fallback" aria-label="Item placeholder icon">
+          <app-material-symbol-icon [name]="defaultItemIcon" />
+        </div>
+      }
+    </div>
+    <div class="shared-item-detail-card__content">
+      <h2>{{ item().name }}</h2>
+      <p class="shared-item-detail-card__meta">Owned by you</p>
+      @if (item().description) {
+        <p>{{ item().description }}</p>
+      }
+      <dl class="shared-item-detail-card__facts">
+        <div>
+          <dt>Typical Location</dt>
+          <dd>
+            @if (item().typicalLocation; as location) {
+              {{ location.name }}
+              @if (location.details) {
+                — {{ location.details }}
+              }
+              ({{ location.timezone }})
+            } @else {
+              Not set
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Typical Placement</dt>
+          <dd>{{ item().typicalPlacement || 'Not noted' }}</dd>
+        </div>
+        <div>
+          <dt>Categories</dt>
+          <dd>{{ categoryLabels().join(', ') || 'None' }}</dd>
+        </div>
+      </dl>
+    </div>
+  </article>
+}

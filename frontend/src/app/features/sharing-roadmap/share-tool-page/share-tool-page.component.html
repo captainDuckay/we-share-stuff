@@ -1,0 +1,142 @@
+<main class="canvas">
+  <header class="canvas__header">
+    <div>
+      <p class="canvas__eyebrow">Add to your inventory</p>
+      <h1>Share a tool</h1>
+    </div>
+    <p class="canvas__intro">
+      Give it a face, tell people what it is, then decide who gets to see it.
+    </p>
+  </header>
+
+  @if (loading()) {
+    <p class="canvas__notice" role="status">Loading Share a tool…</p>
+  }
+  @if (error()) {
+    <div class="canvas__notice canvas__notice--error" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="load()">Retry</button>
+    </div>
+  }
+  @if (!loading() && locations().length === 0) {
+    <p class="canvas__notice">No saved Typical Locations are available.</p>
+  }
+
+  <form class="canvas__form" [formGroup]="form" (ngSubmit)="submit()">
+    <fieldset class="canvas__visual">
+      <legend class="canvas__section-label">01 / Item Photo</legend>
+      <div class="canvas__visual-stage">
+        @if (selectedPhotoPreviewUrl()) {
+          <img [src]="selectedPhotoPreviewUrl()" alt="Selected Item Photo preview" />
+          <button class="canvas__quiet-action" type="button" (click)="cancelPhoto()">
+            Remove photo
+          </button>
+        } @else {
+          <app-material-symbol-icon class="canvas__hero-icon" [name]="defaultItemIcon" />
+          <p>Your tool’s photo starts here.</p>
+        }
+      </div>
+      @if (!selectedPhotoPreviewUrl()) {
+        <div class="canvas__visual-controls">
+          <label class="canvas__upload">
+            Upload a photo
+            <input
+              type="file"
+              [accept]="itemPhotoAccept"
+              (change)="selectPhoto($any($event.target).files?.[0] ?? null)"
+            />
+          </label>
+        </div>
+        @if (photoError()) {
+          <p class="canvas__error" role="alert">{{ photoError() }}</p>
+        }
+      }
+    </fieldset>
+
+    <section class="canvas__details" aria-labelledby="canvas-details-title">
+      <p class="canvas__section-label">02 / The essentials</p>
+      <h2 id="canvas-details-title">What should people know?</h2>
+      <label class="canvas__field canvas__field--name">
+        Name
+        <input formControlName="name" required placeholder="Cordless drill" />
+      </label>
+      <label class="canvas__field">
+        Description
+        <textarea
+          formControlName="description"
+          placeholder="What it is good for, what comes with it…"
+        ></textarea>
+      </label>
+      <div class="canvas__field-row">
+        <label class="canvas__field">
+          Typical Location
+          <select formControlName="typicalLocationId" required>
+            <option value="">Choose a location</option>
+            @for (location of locations(); track location.id) {
+              <option [value]="location.id">{{ location.name }}</option>
+            }
+          </select>
+        </label>
+        <label class="canvas__field">
+          Categories
+          <input
+            formControlName="categories"
+            list="canvas-known-categories"
+            placeholder="garden, power tool"
+          />
+        </label>
+      </div>
+      <datalist id="canvas-known-categories">
+        @for (category of knownCategories(); track category) {
+          <option [value]="category"></option>
+        }
+      </datalist>
+    </section>
+
+    <section class="canvas__sharing" aria-labelledby="canvas-sharing-title">
+      <div>
+        <p class="canvas__section-label">03 / Visibility</p>
+        <h2 id="canvas-sharing-title">Who can borrow it?</h2>
+        <p>Choose nobody to keep this Item private for now.</p>
+      </div>
+      <div class="canvas__groups">
+        @for (group of groups(); track group.id) {
+          <label [class.canvas__group--selected]="isSelected(group.id)">
+            <input
+              type="checkbox"
+              [checked]="isSelected(group.id)"
+              (change)="setGroupSelected(group.id, $any($event.target).checked)"
+            />
+            @if (group.photoUrl) {
+              <img
+                class="canvas__group-photo"
+                [src]="group.photoUrl"
+                [alt]="group.name + ' Sharing Group Photo'"
+              />
+            } @else {
+              <app-material-symbol-icon [name]="defaultSharingGroupIcon" />
+            }
+            <span
+              ><strong>{{ group.name }}</strong
+              ><small>{{ group.memberCount }} Members</small></span
+            >
+          </label>
+        } @empty {
+          <p>No Sharing Groups yet. This Item will stay private.</p>
+        }
+      </div>
+    </section>
+
+    <footer class="canvas__footer">
+      <p>One clean record now. Easy sharing later.</p>
+      <button class="canvas__submit" type="submit" [disabled]="saving()">
+        {{ saving() ? 'Creating…' : 'Create Item' }}
+        <app-material-symbol-icon aria-hidden="true" name="arrow-forward" />
+      </button>
+    </footer>
+  </form>
+
+  @if (announcement()) {
+    <p class="canvas__notice canvas__notice--success" role="status">{{ announcement() }}</p>
+  }
+</main>

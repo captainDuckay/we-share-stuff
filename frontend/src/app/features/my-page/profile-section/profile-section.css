@@ -1,0 +1,53 @@
+.profile-section {
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--card-foreground);
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+}
+
+.profile-section h2,
+.profile-section p {
+  margin-top: 0;
+}
+
+.profile-section__identity,
+.profile-section__photo-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.profile-section__avatar {
+  width: var(--size-avatar-large);
+}
+
+.profile-section__email {
+  color: var(--muted-foreground);
+  margin: var(--space-1) 0 0;
+}
+
+.profile-section__form {
+  display: grid;
+  gap: var(--space-3);
+  max-width: var(--container-md);
+}
+
+.profile-section label {
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.profile-section input,
+.profile-section button {
+  font: inherit;
+  padding: var(--space-2-5) var(--space-3);
+}
+
+.profile-section__error {
+  color: var(--destructive-text);
+  margin: 0;
+}

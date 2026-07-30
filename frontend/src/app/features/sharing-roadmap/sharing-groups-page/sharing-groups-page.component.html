@@ -1,0 +1,55 @@
+<app-page-layout pageTitle="Sharing groups">
+  @if (loading()) {
+    <p role="status">Loading Sharing groups…</p>
+  }
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">
+      {{ error() }}
+      <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
+    </p>
+  }
+  <section class="sharing-page__panel">
+    <h2>Create new Sharing Group</h2>
+    <form class="sharing-page__form" [formGroup]="form" (ngSubmit)="create()">
+      <label class="sharing-page__form-label"
+        >Name <input class="sharing-page__form-control" formControlName="name" required /></label
+      ><button class="sharing-page__button">Create Sharing Group</button>
+    </form>
+  </section>
+  @if (!loading() && groups().length === 0) {
+    <p>No Sharing Groups yet.</p>
+  }
+  <ul class="sharing-page__plain-list sharing-page__card-grid sharing-page__max-three-columns">
+    @for (group of groups(); track group.id) {
+      <li class="sharing-page__card">
+        <a [routerLink]="['/sharing-groups', group.id]" class="sharing-page__card-link">
+          @if (group.photoUrl) {
+            <img
+              class="sharing-page__group-photo"
+              [src]="group.photoUrl"
+              [alt]="group.name + ' Sharing Group Photo'"
+            />
+          } @else {
+            <div class="sharing-page__visual-fallback" aria-label="Sharing Group placeholder icon">
+              <app-material-symbol-icon [name]="defaultSharingGroupIcon" />
+            </div>
+          }
+          <h2>{{ group.name }}</h2></a
+        >
+        <p>{{ group.memberCount }} Member{{ group.memberCount === 1 ? '' : 's' }}</p>
+        <p class="sharing-page__member-stack" aria-label="Member initials">
+          @for (member of visibleMembers(group); track member.user.id) {
+            <app-user-avatar
+              [displayName]="member.user.displayName"
+              [photoUrl]="member.user.profilePhotoUrl"
+            />
+          }
+          @if (remaining(group) > 0) {
+            <span class="sharing-page__avatar">+{{ remaining(group) }}</span>
+          }
+        </p>
+        <p>{{ sharedItemCount(group) }} Shared Item{{ sharedItemCount(group) === 1 ? '' : 's' }}</p>
+      </li>
+    }
+  </ul>
+</app-page-layout>

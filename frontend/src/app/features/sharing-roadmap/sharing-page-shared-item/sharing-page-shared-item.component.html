@@ -1,0 +1,106 @@
+@if (item().itemPhotos[0]; as photo) {
+  <div class="sharing-page-shared-item__image-container">
+    <img
+      class="sharing-page-shared-item__image"
+      [src]="photo.url"
+      [alt]="'Item Photo for ' + item().name"
+    />
+  </div>
+} @else {
+  <div
+    class="sharing-page-shared-item__image-container sharing-page-shared-item__image-placeholder"
+    aria-label="Item placeholder icon"
+  >
+    <app-material-symbol-icon [name]="defaultItemIcon" />
+  </div>
+}
+<div class="sharing-page-shared-item__content">
+  <h5>
+    <a [routerLink]="['/shared-items', item().id]">{{ item().name }}</a>
+    @if (isOwnItem()) {
+      <span class="sharing-page-shared-item__meta">(yours)</span>
+    }
+  </h5>
+  <p class="sharing-page-shared-item__meta sharing-page-shared-item__person">
+    <app-user-avatar
+      [displayName]="item().owner.displayName"
+      [photoUrl]="item().owner.profilePhotoUrl"
+    />
+    Owned by {{ item().owner.displayName }}
+  </p>
+  @if (visibleThrough().length > 0) {
+    <p class="sharing-page-shared-item__meta">
+      Visible through:
+      @for (visibleGroup of visibleThrough(); track visibleGroup.id) {
+        {{ visibleGroup.name }}{{ $last ? '' : ', ' }}
+      }
+    </p>
+  }
+  @if (showDetails()) {
+    @if (item().description) {
+      <p>{{ item().description }}</p>
+    }
+    <dl class="sharing-page-shared-item__facts">
+      <div>
+        <dt class="sharing-page-shared-item__fact-term">Typical Location</dt>
+        <dd class="sharing-page-shared-item__fact-description">
+          {{ item().typicalLocation.name }}
+          @if (item().typicalLocation.details) {
+            — {{ item().typicalLocation.details }}
+          }
+          ({{ item().typicalLocation.timezone }})
+        </dd>
+      </div>
+      <div>
+        <dt class="sharing-page-shared-item__fact-term">Typical Placement</dt>
+        <dd class="sharing-page-shared-item__fact-description">{{ placementLabel() }}</dd>
+      </div>
+    </dl>
+    @if (acceptedRanges().length > 0) {
+      <p>Accepted Reservations:</p>
+      <ul>
+        @for (range of acceptedRanges(); track range) {
+          <li>{{ range }}</li>
+        }
+      </ul>
+    }
+    @if (group()) {
+      @if (item().reservationState.requestable) {
+        <form
+          class="sharing-page-shared-item__reservation-form"
+          (submit)="$event.preventDefault(); requestReservation(startLocal.value, endLocal.value)"
+        >
+          <p>
+            Reservation times use the Typical Location timezone:
+            {{ item().typicalLocation.timezone }}.
+          </p>
+          <label class="sharing-page-shared-item__form-label"
+            >Start
+            <input
+              class="sharing-page-shared-item__form-control"
+              #startLocal
+              type="datetime-local"
+              required
+            />
+          </label>
+          <label class="sharing-page-shared-item__form-label"
+            >End
+            <input
+              class="sharing-page-shared-item__form-control"
+              #endLocal
+              type="datetime-local"
+              required
+            />
+          </label>
+          <button class="sharing-page-shared-item__button" type="submit">
+            Request Reservation
+          </button>
+        </form>
+      } @else {
+        <p class="sharing-page-shared-item__meta">
+          You own this Item, so Members request Reservations from you.
+        </p>
+      }
+    }
+  }
+</div>

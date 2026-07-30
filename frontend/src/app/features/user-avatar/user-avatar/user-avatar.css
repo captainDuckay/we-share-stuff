@@ -1,0 +1,33 @@
+:host {
+  align-items: center;
+  aspect-ratio: 1;
+  background: var(--secondary);
+  border: 0;
+  border-radius: 50%;
+  color: var(--secondary-foreground);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font: inherit;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  width: var(--size-avatar);
+}
+
+:host(button) {
+  cursor: pointer;
+}
+
+.user-avatar__photo {
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+}
+
+.user-avatar__initials {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}

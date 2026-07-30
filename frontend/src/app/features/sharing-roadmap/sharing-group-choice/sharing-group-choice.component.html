@@ -1,0 +1,24 @@
+<input
+  class="sharing-page__form-control"
+  type="checkbox"
+  [checked]="selected()"
+  (change)="selectedChange.emit($any($event.target).checked)"
+/>
+@if (group().photoUrl) {
+  <img
+    class="sharing-page__choice-card-visual"
+    [src]="group().photoUrl"
+    [alt]="group().name + ' Sharing Group Photo'"
+  />
+} @else {
+  <span
+    class="sharing-page__visual-fallback sharing-page__choice-card-visual"
+    aria-label="Sharing Group placeholder icon"
+  >
+    <app-material-symbol-icon [name]="defaultSharingGroupIcon" />
+  </span>
+}
+<span class="sharing-page__choice-card-summary">
+  <strong>{{ group().name }}</strong>
+  <span>{{ group().memberCount }} Members</span>
+</span>

@@ -1,0 +1,29 @@
+<main class="page-layout">
+  <header class="page-layout__header">
+    <div class="page-layout__heading">
+      <h1>{{ pageTitle() }}</h1>
+      @if (description()) {
+        <p>{{ description() }}</p>
+      }
+    </div>
+    @if (backLink() && backLabel()) {
+      <a class="page-layout__back-link" [routerLink]="backLink()">
+        <app-material-symbol-icon aria-hidden="true" name="arrow-back" />
+        <span>{{ backLabel() }}</span>
+      </a>
+    }
+  </header>
+
+  <div class="page-layout__body" [class.page-layout__body--with-aside]="asideLabel()">
+    <div class="page-layout__content">
+      <ng-content />
+    </div>
+    <aside
+      class="page-layout__aside"
+      [attr.aria-label]="asideLabel() || null"
+      [hidden]="!asideLabel()"
+    >
+      <ng-content select="[pageAside]" />
+    </aside>
+  </div>
+</main>

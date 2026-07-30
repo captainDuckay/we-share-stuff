@@ -1,0 +1,79 @@
+:host {
+  color: inherit;
+  display: block;
+  text-decoration: none;
+}
+
+.shared-item-card__image-container {
+  aspect-ratio: var(--aspect-item-visual);
+  overflow: hidden;
+}
+
+.shared-item-card__image,
+.shared-item-card__visual-fallback {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.shared-item-card__image {
+  object-fit: cover;
+}
+
+.shared-item-card__visual-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.shared-item-card__content {
+  padding: var(--space-4);
+}
+
+.shared-item-card__card-heading-row,
+.shared-item-card__card-meta-row {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.shared-item-card__card-heading {
+  margin-block: 0;
+}
+
+.shared-item-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shared-item-card__pill {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-full);
+  padding: var(--space-1-5) var(--space-3);
+}
+
+.shared-item-card__location-meta {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-1);
+  text-align: end;
+}
+
+.shared-item-card__avatar {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-full);
+  display: inline-grid;
+  min-width: var(--space-6);
+  min-height: var(--space-6);
+  place-items: center;
+  padding: var(--space-1);
+}
+
+.shared-item-card__meta {
+  color: var(--muted-foreground);
+}

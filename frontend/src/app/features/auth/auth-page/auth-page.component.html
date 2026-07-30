@@ -1,0 +1,48 @@
+<main class="auth-page">
+  <h1>{{ mode() === 'register' ? 'Create your account' : 'Sign in' }}</h1>
+  <p>
+    {{ mode() === 'register' ? 'Start your private inventory.' : 'Access your private inventory.' }}
+  </p>
+  @if (errorMessage()) {
+    <p #errorSummary class="auth-page__error" role="alert" tabindex="-1">
+      {{ errorMessage() }}
+    </p>
+  }
+  <form class="auth-page__form" (submit)="submit(); $event.preventDefault()" novalidate>
+    @if (mode() === 'register') {
+      <label class="auth-page__form-label">
+        Display Name
+        <input [formField]="authForm.displayName" autocomplete="name" />
+      </label>
+      @if (authForm.displayName().touched() && authForm.displayName().errors().length) {
+        <p class="auth-page__error">{{ authForm.displayName().errors()[0].message }}</p>
+      }
+    }
+    <label class="auth-page__form-label">
+      Email
+      <input type="email" [formField]="authForm.email" autocomplete="email" />
+    </label>
+    @if (authForm.email().touched() && authForm.email().errors().length) {
+      <p class="auth-page__error">{{ authForm.email().errors()[0].message }}</p>
+    }
+    <label class="auth-page__form-label">
+      Password
+      <input
+        type="password"
+        [formField]="authForm.password"
+        [autocomplete]="mode() === 'register' ? 'new-password' : 'current-password'"
+      />
+    </label>
+    @if (authForm.password().touched() && authForm.password().errors().length) {
+      <p class="auth-page__error">{{ authForm.password().errors()[0].message }}</p>
+    }
+    <button class="auth-page__button" type="submit" [disabled]="pending()">
+      {{ pending() ? 'Please wait…' : mode() === 'register' ? 'Create account' : 'Sign in' }}
+    </button>
+  </form>
+  @if (mode() === 'register') {
+    <p>Already registered? <a routerLink="/sign-in">Sign in</a>.</p>
+  } @else {
+    <p>Need an account? <a routerLink="/register">Register</a>.</p>
+  }
+</main>

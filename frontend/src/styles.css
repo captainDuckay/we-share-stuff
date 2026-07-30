@@ -1,0 +1,82 @@
+@import './styles/tokens/colors.css';
+@import './styles/tokens/spacing.css';
+@import './styles/tokens/layout.css';
+@import './styles/tokens/typography.css';
+@import './styles/tokens/effects.css';
+@import './styles/tokens/motion.css';
+@import './styles/tokens/theme-colors.css';
+
+:root {
+  font-family: var(--font-display);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a,
+a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  height: auto;
+  max-width: 100%;
+}
+
+fieldset {
+  min-width: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  background: var(--card);
+  border: var(--border-width) solid var(--input);
+  border-radius: var(--radius-sm);
+  color: var(--card-foreground);
+  font: inherit;
+}
+
+button {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+.app-body {
+  background: var(--background);
+  color: var(--foreground);
+  margin: 0;
+}
+
+.app-body :focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--space-1);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

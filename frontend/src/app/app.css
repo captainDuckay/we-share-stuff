@@ -1,0 +1,108 @@
+.app__header {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+  max-width: var(--container-5xl);
+  margin: auto;
+  position: relative;
+}
+
+.app__home-link {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--text-2xl--line-height);
+  margin-right: auto;
+}
+
+.app__home-link-we {
+  color: rgb(15 129 222);
+}
+
+.app__home-link-share {
+  color: rgb(35 57 78);
+}
+
+.app__home-link-stuff {
+  color: rgb(80 184 79);
+}
+
+.app__nav {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.app__button {
+  font: inherit;
+}
+
+.app__account-trigger {
+  anchor-name: --account-menu-trigger;
+}
+
+.app__account-menu {
+  background: var(--popover);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--popover-foreground);
+  bottom: auto;
+  box-shadow: var(--shadow-popover);
+  left: auto;
+  margin: var(--space-2) 0 0;
+  min-width: var(--layout-field-min);
+  padding: var(--space-1-5);
+  position: fixed;
+  position-anchor: --account-menu-trigger;
+  right: anchor(right);
+  top: anchor(bottom);
+  z-index: var(--layer-popover);
+}
+
+.app__account-menu:popover-open {
+  display: grid;
+}
+
+.app__account-menu a,
+.app__account-menu button,
+.app__account-name {
+  border: 0;
+  border-radius: var(--radius-xs);
+  color: var(--popover-foreground);
+  font: inherit;
+  padding: var(--space-2-5) var(--space-3);
+  text-align: left;
+  text-decoration: none;
+}
+
+.app__account-menu a,
+.app__account-menu button {
+  background: none;
+  cursor: pointer;
+}
+
+.app__account-menu a:hover,
+.app__account-menu button:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.app__account-name {
+  font-weight: var(--font-weight-bold);
+}
+
+@media (max-width: 48rem) {
+  .app__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .app__home-link {
+    margin-right: 0;
+  }
+
+  .app__nav {
+    flex-wrap: wrap;
+  }
+}

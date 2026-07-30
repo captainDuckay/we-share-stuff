@@ -1,0 +1,173 @@
+<article class="owned-item-editor">
+  <p class="owned-item-editor__status" aria-live="polite">{{ announcement() }}</p>
+
+  @if (!editing()) {
+    <app-owned-item-summary
+      [item]="item()"
+      [photos]="photos()"
+      [photosLoaded]="photosLoaded()"
+      [sharedItem]="sharedItem()"
+      [currentUserId]="currentUserId()"
+      (editRequested)="startEditing()"
+    />
+  } @else {
+    <header class="owned-item-editor__header">
+      <h2>Edit item</h2>
+      <button class="sharing-page__button" type="button" (click)="cancelEditing()">Cancel</button>
+    </header>
+
+    @if (loadingSupport()) {
+      <p role="status">Loading Item editing options…</p>
+    }
+    @if (error()) {
+      <p class="sharing-page__error" role="alert">{{ error() }}</p>
+    }
+
+    <form
+      class="sharing-page__form owned-item-editor__form"
+      (submit)="submitEdit(); $event.preventDefault()"
+      novalidate
+    >
+      <h3>Item details</h3>
+      <label class="sharing-page__form-label">
+        Name
+        <input
+          class="sharing-page__form-control"
+          [formField]="editForm.name"
+          [attr.aria-invalid]="editForm.name().invalid()"
+          [attr.aria-describedby]="
+            editForm.name().touched() && editForm.name().invalid() ? 'item-name-error' : null
+          "
+        />
+      </label>
+      @if (editForm.name().touched() && editForm.name().invalid()) {
+        <p id="item-name-error" class="sharing-page__error">
+          {{ editForm.name().errors()[0].message }}
+        </p>
+      }
+
+      <label class="sharing-page__form-label">
+        Description
+        <textarea
+          class="sharing-page__form-control owned-item-editor__textarea"
+          [formField]="editForm.description"
+          [attr.aria-invalid]="editForm.description().invalid()"
+          [attr.aria-describedby]="
+            editForm.description().touched() && editForm.description().invalid()
+              ? 'item-description-error'
+              : null
+          "
+        ></textarea>
+      </label>
+      @if (editForm.description().touched() && editForm.description().invalid()) {
+        <p id="item-description-error" class="sharing-page__error">
+          {{ editForm.description().errors()[0].message }}
+        </p>
+      }
+
+      <label class="sharing-page__form-label">
+        Typical Location
+        <select class="sharing-page__form-control" [formField]="editForm.typicalLocationId">
+          <option value="">No Typical Location</option>
+          @for (location of locations(); track location.id) {
+            <option [value]="location.id">{{ location.name }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="sharing-page__form-label">
+        Typical Placement
+        <textarea
+          class="sharing-page__form-control owned-item-editor__textarea"
+          [formField]="editForm.typicalPlacement"
+          [attr.aria-invalid]="editForm.typicalPlacement().invalid()"
+          [attr.aria-describedby]="
+            editForm.typicalPlacement().touched() && editForm.typicalPlacement().invalid()
+              ? 'item-placement-help item-placement-error'
+              : 'item-placement-help'
+          "
+        ></textarea>
+      </label>
+      @if (editForm.typicalPlacement().touched() && editForm.typicalPlacement().invalid()) {
+        <p id="item-placement-error" class="sharing-page__error">
+          {{ editForm.typicalPlacement().errors()[0].message }}
+        </p>
+      }
+      <p id="item-placement-help" class="sharing-page__meta">
+        Use this for the exact shelf, bin, or other spot within the Typical Location.
+      </p>
+
+      <label class="sharing-page__form-label">
+        Categories
+        <input
+          class="sharing-page__form-control"
+          [formField]="editForm.categories"
+          placeholder="ladder, garden"
+        />
+      </label>
+
+      <div class="owned-item-editor__actions">
+        <button class="sharing-page__button" type="submit" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Save changes' }}
+        </button>
+        <button class="sharing-page__button" type="button" (click)="cancelEditing()">Cancel</button>
+      </div>
+    </form>
+
+    <section class="owned-item-editor__photos" aria-labelledby="item-photos-title">
+      <h3 id="item-photos-title">Item Photos</h3>
+      @if (photoError()) {
+        <p class="sharing-page__error" role="alert">{{ photoError() }}</p>
+      }
+      @if (photos().length > 0) {
+        <ul class="sharing-page__photo-list">
+          @for (photo of photos(); track photo.id) {
+            <li class="owned-item-editor__photo">
+              <img [src]="photo.url" [alt]="'Item Photo for ' + item().name" />
+              <button
+                class="sharing-page__button"
+                type="button"
+                [disabled]="photoBusy()"
+                (click)="removePhoto(photo)"
+              >
+                Remove photo
+              </button>
+            </li>
+          }
+        </ul>
+      } @else if (!loadingSupport()) {
+        <p>No Item Photos yet.</p>
+      }
+
+      @if (selectedPhotoPreviewUrl()) {
+        <div class="owned-item-editor__photo-selection">
+          <img [src]="selectedPhotoPreviewUrl()" alt="Selected Item Photo preview" />
+          <div class="owned-item-editor__actions">
+            <button
+              class="sharing-page__button"
+              type="button"
+              [disabled]="photoBusy()"
+              (click)="uploadPhoto()"
+            >
+              {{ photoBusy() ? 'Uploading…' : 'Upload photo' }}
+            </button>
+            <button class="sharing-page__button" type="button" (click)="cancelPhotoSelection()">
+              Cancel
+            </button>
+          </div>
+        </div>
+      } @else {
+        <label class="sharing-page__form-label">
+          Add an Item Photo
+          <input
+            class="sharing-page__form-control"
+            type="file"
+            [accept]="itemPhotoAccept"
+            [disabled]="photoBusy()"
+            (change)="selectPhoto($event)"
+          />
+        </label>
+      }
+    </section>
+  }
+</article>

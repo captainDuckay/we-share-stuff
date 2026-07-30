@@ -1,0 +1,13 @@
+:host {
+  display: block;
+}
+
+.owned-item-summary__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: var(--space-3);
+}
+
+.owned-item-summary__actions button {
+  font: inherit;
+}

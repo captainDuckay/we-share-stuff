@@ -1,0 +1,28 @@
+<section class="theme-preference-section" aria-labelledby="appearance-heading">
+  <div>
+    <h2 id="appearance-heading">Appearance</h2>
+    <p id="appearance-description">Choose how We Share Stuff should look on this browser.</p>
+  </div>
+
+  <fieldset aria-describedby="appearance-description">
+    <legend>Theme</legend>
+    <div class="theme-preference-section__options">
+      @for (option of options; track option.value) {
+        <label class="theme-preference-section__option" [for]="'theme-' + option.value">
+          <input
+            [id]="'theme-' + option.value"
+            type="radio"
+            name="theme-preference"
+            [value]="option.value"
+            [checked]="themePreference.preference() === option.value"
+            (change)="selectPreference(option.value)"
+          />
+          <span>
+            <strong>{{ option.label }}</strong>
+            <span class="theme-preference-section__description">{{ option.description }}</span>
+          </span>
+        </label>
+      }
+    </div>
+  </fieldset>
+</section>

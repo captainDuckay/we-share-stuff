@@ -1,0 +1,212 @@
+<app-page-layout
+  [pageTitle]="group()?.name ?? 'Sharing Group'"
+  backLink="/home"
+  backLabel="Home"
+  [asideLabel]="group() ? 'Community overview' : ''"
+>
+  @if (loading()) {
+    <p role="status">Loading Sharing Group…</p>
+  }
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">{{ error() }}</p>
+  }
+  @if (group(); as sharingGroup) {
+    <section class="sharing-page__panel" aria-labelledby="group-attention-title">
+      <h2 id="group-attention-title">Attention</h2>
+      @if (scopedAttentionCount() === 0) {
+        <p>No scoped attention items right now.</p>
+      } @else {
+        <ul class="sharing-page__plain-list sharing-page__compact-list">
+          @for (invitation of attentionInvitations(); track invitation.id) {
+            <li class="sharing-page__list-item">
+              <strong>Invitation</strong> {{ invitation.invitedEmail }} is pending.
+              <button
+                class="sharing-page__button"
+                type="button"
+                (click)="dismissAttention('invitation:' + invitation.id)"
+              >
+                Dismiss
+              </button>
+            </li>
+          }
+          @for (proposal of attentionChangeProposals(); track proposal.id) {
+            <li class="sharing-page__list-item">
+              <strong>Reservation Change Proposal</strong>
+              {{ proposal.reservation.item.name }} · {{ proposal.status }}
+              @if (canActOnProposal(proposal)) {
+                <button
+                  class="sharing-page__button"
+                  type="button"
+                  (click)="approveChangeProposal(proposal)"
+                >
+                  Approve
+                </button>
+                <button
+                  class="sharing-page__button"
+                  type="button"
+                  (click)="rejectChangeProposal(proposal)"
+                >
+                  Reject
+                </button>
+              } @else {
+                <span class="sharing-page__meta">Waiting for the other User.</span>
+                <button
+                  class="sharing-page__button"
+                  type="button"
+                  (click)="dismissAttention('proposal:' + proposal.id)"
+                >
+                  Dismiss
+                </button>
+              }
+            </li>
+          }
+          @for (reservation of attentionReservations(); track reservation.id) {
+            <li class="sharing-page__list-item">
+              <strong>Reservation Request</strong> {{ reservation.item.name }} ·
+              {{ reservation.status }}
+              @if (
+                reservation.status === 'pending' && reservation.item.owner.id === session.user()?.id
+              ) {
+                <button
+                  class="sharing-page__button"
+                  type="button"
+                  (click)="acceptReservation(reservation)"
+                >
+                  Accept
+                </button>
+                <button
+                  class="sharing-page__button"
+                  type="button"
+                  (click)="declineReservation(reservation)"
+                >
+                  Decline
+                </button>
+              } @else if (reservation.conflictsWithAcceptedReservation) {
+                <span class="sharing-page__meta">Needs new dates.</span>
+                <button
+                  class="sharing-page__button"
+                  type="button"
+                  (click)="dismissAttention('reservation:' + reservation.id)"
+                >
+                  Dismiss
+                </button>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+    <section aria-labelledby="group-shared-items-title">
+      <h2 id="group-shared-items-title">Shared Items</h2>
+      @if (sharedItems().length === 0) {
+        <p>No Items have been shared yet.</p>
+      } @else {
+        <ul class="sharing-page__plain-list sharing-page__shared-items">
+          @for (item of sharedItems(); track item.id) {
+            <li>
+              <article
+                app-sharing-page-shared-item
+                [item]="item"
+                [currentUserId]="session.user()?.id"
+                [showDetails]="false"
+              ></article>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+  <div pageAside class="sharing-page__panel">
+    @if (group(); as sharingGroup) {
+      <section class="sharing-group-page__photo" aria-labelledby="sharing-group-photo-title">
+        <h2 id="sharing-group-photo-title">Sharing Group Photo</h2>
+        <div class="sharing-group-page__photo-preview">
+          @if (selectedPhotoPreviewUrl() || sharingGroup.photoUrl; as photoUrl) {
+            <img [src]="photoUrl" [alt]="sharingGroup.name + ' Sharing Group Photo'" />
+          } @else {
+            <app-material-symbol-icon
+              aria-label="Sharing Group placeholder icon"
+              [name]="defaultSharingGroupIcon"
+            />
+          }
+        </div>
+        @if (sharingGroup.currentUserCanManage) {
+          <div class="sharing-group-page__photo-controls">
+            <label>
+              Choose photo
+              <input
+                type="file"
+                [accept]="sharingGroupPhotoAccept"
+                (change)="selectPhoto($event)"
+              />
+            </label>
+            @if (selectedPhoto()) {
+              <button
+                class="sharing-page__button"
+                type="button"
+                [disabled]="photoBusy()"
+                (click)="uploadPhoto()"
+              >
+                {{
+                  photoBusy()
+                    ? 'Uploading…'
+                    : sharingGroup.photoUrl
+                      ? 'Replace photo'
+                      : 'Upload photo'
+                }}
+              </button>
+              <button
+                class="sharing-page__button"
+                type="button"
+                [disabled]="photoBusy()"
+                (click)="cancelPhotoSelection()"
+              >
+                Cancel
+              </button>
+            } @else if (sharingGroup.photoUrl) {
+              <button
+                class="sharing-page__button"
+                type="button"
+                [disabled]="photoBusy()"
+                (click)="removePhoto()"
+              >
+                {{ photoBusy() ? 'Removing…' : 'Remove photo' }}
+              </button>
+            }
+          </div>
+        }
+        @if (photoError()) {
+          <p class="sharing-page__error" role="alert">{{ photoError() }}</p>
+        }
+        <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
+      </section>
+      <h2>Community overview</h2>
+      <h3>Members</h3>
+      <ul class="sharing-page__plain-list sharing-page__compact-list">
+        @for (member of members(); track member.user.id) {
+          <li class="sharing-page__list-item sharing-page__person">
+            <app-user-avatar
+              [displayName]="member.user.displayName"
+              [photoUrl]="member.user.profilePhotoUrl"
+            />
+            {{ member.user.displayName }}
+            @if (member.isCreator) {
+              <span>(creator)</span>
+            }
+          </li>
+        }
+      </ul>
+      @if (sharingGroup.currentUserCanManage) {
+        <h3>Invitations</h3>
+        @if (invitations().length === 0) {
+          <p>No pending Invitations.</p>
+        }
+        <ul class="sharing-page__plain-list sharing-page__compact-list">
+          @for (invitation of invitations(); track invitation.id) {
+            <li>{{ invitation.invitedEmail }}</li>
+          }
+        </ul>
+      }
+    }
+  </div>
+</app-page-layout>

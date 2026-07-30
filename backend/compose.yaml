@@ -1,0 +1,40 @@
+services:
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://we_share_stuff:we_share_stuff@db:5432/we_share_stuff
+      ENVIRONMENT: development
+      FRONTEND_ORIGINS: http://localhost:4200
+      COOKIE_SECURE: "false"
+      ITEM_PHOTO_STORAGE_DIR: /data/item-photos
+      PROFILE_PHOTO_STORAGE_DIR: /data/profile-photos
+      SHARING_GROUP_PHOTO_STORAGE_DIR: /data/sharing-group-photos
+    ports:
+      - "8000:8000"
+    volumes:
+      - item_photo_data:/data/item-photos
+      - profile_photo_data:/data/profile-photos
+      - sharing_group_photo_data:/data/sharing-group-photos
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: we_share_stuff
+      POSTGRES_PASSWORD: we_share_stuff
+      POSTGRES_USER: we_share_stuff
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U we_share_stuff -d we_share_stuff"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  item_photo_data:
+  profile_photo_data:
+  sharing_group_photo_data:
+  postgres_data:

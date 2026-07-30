@@ -1,0 +1,42 @@
+<div class="shared-item-card__image-container">
+  @if (photoUrl(item())) {
+    <img
+      class="shared-item-card__image"
+      [src]="photoUrl(item())!"
+      [alt]="'Item Photo for ' + item().name"
+    />
+  } @else {
+    <div class="shared-item-card__visual-fallback" aria-label="Item placeholder icon">
+      <app-material-symbol-icon [name]="defaultItemIcon" />
+    </div>
+  }
+</div>
+<div class="shared-item-card__content">
+  <div class="shared-item-card__card-heading-row">
+    <h2 class="shared-item-card__card-heading">{{ item().name }}</h2>
+    @if (categoryLabels(item()).length > 0) {
+      <div class="shared-item-card__pills" aria-label="Categories">
+        @for (label of categoryLabels(item()); track label) {
+          <span class="shared-item-card__pill">{{ label }}</span>
+        }
+      </div>
+    }
+  </div>
+  <div class="shared-item-card__card-meta-row">
+    @if (ownerName()) {
+      <span class="shared-item-card__meta">
+        <app-user-avatar [displayName]="ownerName()" [photoUrl]="ownerPhotoUrl()" />
+        {{ ownerName() }}
+      </span>
+    } @else {
+      <span></span>
+    }
+    <span
+      class="shared-item-card__meta shared-item-card__location-meta"
+      [attr.aria-label]="'Location: ' + typicalLocationName(item())"
+    >
+      <app-material-symbol-icon class="shared-item-card__location-meta-icon" name="location-on" />
+      <span>{{ typicalLocationName(item()) }}</span>
+    </span>
+  </div>
+</div>

@@ -1,0 +1,53 @@
+.sharing-group-page__photo {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.sharing-group-page__photo h2 {
+  margin: 0;
+}
+
+.sharing-group-page__photo-preview {
+  align-items: center;
+  aspect-ratio: var(--aspect-item-visual);
+  background: var(--muted);
+  display: flex;
+  font-size: var(--text-5xl);
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.sharing-group-page__photo-preview img {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.sharing-group-page__photo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sharing-group-page__photo-controls label {
+  display: grid;
+  gap: var(--space-1-5);
+  width: 100%;
+}
+
+.sharing-group-page__photo-controls input {
+  box-sizing: border-box;
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}

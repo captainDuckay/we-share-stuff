@@ -1,0 +1,116 @@
+<article class="shared-item-detail-card">
+  <div class="shared-item-detail-card__image-container">
+    @if (photoUrl()) {
+      <img
+        class="shared-item-detail-card__image"
+        [src]="photoUrl()!"
+        [alt]="'Item Photo for ' + item().name"
+      />
+    } @else {
+      <div class="shared-item-detail-card__visual-fallback" aria-label="Item placeholder icon">
+        <app-material-symbol-icon [name]="defaultItemIcon" />
+      </div>
+    }
+  </div>
+  <div class="shared-item-detail-card__content">
+    <h2>{{ item().name }}</h2>
+    <p class="shared-item-detail-card__meta shared-item-detail-card__person">
+      <app-user-avatar
+        [displayName]="item().owner.displayName"
+        [photoUrl]="item().owner.profilePhotoUrl"
+      />
+      Owned by {{ item().owner.displayName }}
+      @if (isOwnItem()) {
+        <span>(yours)</span>
+      }
+    </p>
+    @if (item().description) {
+      <p>{{ item().description }}</p>
+    }
+    <dl class="shared-item-detail-card__facts">
+      <div>
+        <dt>Owner</dt>
+        <dd>{{ item().owner.displayName }}</dd>
+      </div>
+      <div>
+        <dt>Visible through</dt>
+        <dd>
+          @for (group of item().visibleThrough; track group.id) {
+            {{ group.name }}{{ $last ? '' : ', ' }}
+          }
+        </dd>
+      </div>
+      <div>
+        <dt>Typical Location</dt>
+        <dd>
+          {{ item().typicalLocation.name }}
+          @if (item().typicalLocation.details) {
+            — {{ item().typicalLocation.details }}
+          }
+          ({{ item().typicalLocation.timezone }})
+        </dd>
+      </div>
+      <div>
+        <dt>Typical Placement</dt>
+        <dd>{{ placementLabel() }}</dd>
+      </div>
+      <div>
+        <dt>Availability</dt>
+        <dd>{{ availabilityLabel() }}</dd>
+      </div>
+    </dl>
+    @if (acceptedRanges().length > 0) {
+      <h2>Blocked ranges</h2>
+      <ul>
+        @for (range of acceptedRanges(); track range) {
+          <li>{{ range }}</li>
+        }
+      </ul>
+    }
+    @if (item().reservationState.requestable) {
+      <form class="shared-item-detail-card__reservation-form" [formRoot]="reservationForm">
+        <p>
+          Reservation times use the Typical Location timezone:
+          {{ item().typicalLocation.timezone }}.
+        </p>
+        <label>
+          Start
+          <input
+            type="datetime-local"
+            [formField]="reservationForm.startLocal"
+            [attr.aria-invalid]="reservationForm.startLocal().invalid()"
+            [attr.aria-describedby]="
+              reservationForm.startLocal().touched() && reservationForm.startLocal().invalid()
+                ? 'reservation-start-error'
+                : null
+            "
+          />
+        </label>
+        @if (reservationForm.startLocal().touched() && reservationForm.startLocal().invalid()) {
+          <p id="reservation-start-error" class="shared-item-detail-card__error" role="alert">
+            {{ reservationForm.startLocal().errors()[0].message }}
+          </p>
+        }
+        <label>
+          End
+          <input
+            type="datetime-local"
+            [formField]="reservationForm.endLocal"
+            [attr.aria-invalid]="reservationForm.endLocal().invalid()"
+            [attr.aria-describedby]="
+              reservationForm.endLocal().touched() && reservationForm.endLocal().invalid()
+                ? 'reservation-end-error'
+                : null
+            "
+          />
+        </label>
+        @if (reservationForm.endLocal().touched() && reservationForm.endLocal().invalid()) {
+          <p id="reservation-end-error" class="shared-item-detail-card__error" role="alert">
+            {{ reservationForm.endLocal().errors()[0].message }}
+          </p>
+        }
+        <button type="submit">Request to borrow</button>
+      </form>
+    }
+  </div>
+</article>

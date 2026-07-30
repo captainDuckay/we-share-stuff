@@ -1,0 +1,86 @@
+:host {
+  display: block;
+}
+
+.shared-item-detail-card {
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--card-foreground);
+  overflow: hidden;
+}
+
+.shared-item-detail-card__image-container {
+  aspect-ratio: var(--aspect-item-visual);
+  overflow: hidden;
+}
+
+.shared-item-detail-card__image,
+.shared-item-detail-card__visual-fallback {
+  height: 100%;
+  width: 100%;
+}
+
+.shared-item-detail-card__image {
+  display: block;
+  object-fit: cover;
+}
+
+.shared-item-detail-card__visual-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.shared-item-detail-card__content {
+  padding: var(--space-4);
+}
+
+.shared-item-detail-card__facts {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.shared-item-detail-card__facts dt {
+  font-weight: var(--font-weight-bold);
+}
+
+.shared-item-detail-card__facts dd {
+  margin: var(--space-1) 0 0;
+}
+
+.shared-item-detail-card__reservation-form {
+  align-items: end;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(var(--layout-field-min), 1fr));
+}
+
+.shared-item-detail-card__reservation-form label {
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.shared-item-detail-card__error {
+  color: var(--destructive-text);
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.shared-item-detail-card__reservation-form button,
+.shared-item-detail-card__reservation-form input {
+  font: inherit;
+}
+
+.shared-item-detail-card__person {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.shared-item-detail-card__meta {
+  color: var(--muted-foreground);
+}

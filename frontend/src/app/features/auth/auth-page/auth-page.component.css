@@ -1,0 +1,28 @@
+:host {
+  display: block;
+}
+
+.auth-page {
+  max-width: var(--container-md);
+  margin: var(--space-16) auto;
+  padding: var(--space-4);
+}
+
+.auth-page__form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.auth-page__form-label {
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.auth-page__error {
+  color: var(--destructive-text);
+}
+
+.auth-page__button,
+.auth-page__form-control {
+  font: inherit;
+}

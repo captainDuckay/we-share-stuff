@@ -1,0 +1,73 @@
+<app-page-layout
+  pageTitle="Browse"
+  description="Shared Items visible to you across all Sharing Groups."
+  asideLabel="Browse filters"
+>
+  @if (loading()) {
+    <p role="status">Loading Browse…</p>
+  }
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">
+      {{ error() }}
+      <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
+    </p>
+  }
+  <section aria-label="Shared Items">
+    @if (!loading() && groups().length === 0) {
+      <p>Join or create a Sharing Group before there are Shared Items to browse.</p>
+    } @else if (!loading() && sharedItems().length === 0) {
+      <p>No Items have been shared yet.</p>
+    } @else if (!loading() && filteredItems().length === 0) {
+      <p>No Shared Items match these filters yet.</p>
+    } @else {
+      <ul class="sharing-page__plain-list sharing-page__card-grid">
+        @for (item of filteredItems(); track item.id) {
+          <li class="sharing-page__card sharing-page__item-card">
+            <a
+              app-shared-item-card
+              [routerLink]="['/shared-items', item.id]"
+              [item]="item"
+              [ownerName]="ownerName(item)"
+              [ownerPhotoUrl]="item.owner.profilePhotoUrl"
+            ></a>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <div pageAside class="sharing-page__browse-filters">
+    <section aria-labelledby="sharing-group-filter-title">
+      <h2 class="sharing-page__browse-filter-heading" id="sharing-group-filter-title">
+        Sharing groups
+      </h2>
+      <div class="sharing-page__filters">
+        @for (group of groupOptions(); track group.id) {
+          <button
+            class="sharing-page__button sharing-page__filter-button"
+            type="button"
+            [class.sharing-page__active]="selectedGroupId() === group.id"
+            (click)="selectedGroupId.set(group.id)"
+          >
+            {{ group.label }}
+          </button>
+        }
+      </div>
+    </section>
+    <section aria-labelledby="category-filter-title">
+      <h2 class="sharing-page__browse-filter-heading" id="category-filter-title">Categories</h2>
+      <div class="sharing-page__filters">
+        @for (category of categoryOptions(); track category.id) {
+          <button
+            class="sharing-page__button sharing-page__filter-button"
+            type="button"
+            [class.sharing-page__active]="selectedCategory() === category.id"
+            (click)="selectedCategory.set(category.id)"
+          >
+            {{ category.label }}
+          </button>
+        }
+      </div>
+    </section>
+  </div>
+</app-page-layout>

@@ -1,0 +1,563 @@
+<app-page-layout
+  pageTitle="Home"
+  description="Coordinate your Sharing Groups, browse Shared Items visible to you, and act on Reservation Requests."
+>
+  <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
+
+  @if (loading()) {
+    <p role="status">Loading your sharing details…</p>
+  }
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">
+      {{ error() }}
+      <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
+    </p>
+  }
+  @if (formError()) {
+    <p class="sharing-page__error" role="alert">{{ formError() }}</p>
+  }
+
+  <section class="sharing-page__panel" aria-labelledby="home-attention-title">
+    <h2 id="home-attention-title">Attention</h2>
+    @if (
+      !loading() &&
+      myInvitations().length === 0 &&
+      attentionReceivedReservations().length === 0 &&
+      attentionRequestedReservations().length === 0 &&
+      attentionChangeProposals().length === 0
+    ) {
+      <p>No attention items right now.</p>
+    } @else {
+      <ul class="sharing-page__plain-list sharing-page__compact-list">
+        @for (invitation of myInvitations(); track invitation.id) {
+          <li class="sharing-page__list-item">
+            <strong>Invitation</strong>
+            <span>{{ invitation.sharingGroup.name }} invited {{ invitation.invitedEmail }}</span>
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="acceptInvitation(invitation)"
+            >
+              Accept
+            </button>
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="declineInvitation(invitation)"
+            >
+              Decline
+            </button>
+          </li>
+        }
+        @for (proposal of attentionChangeProposals(); track proposal.id) {
+          <li class="sharing-page__list-item">
+            <strong>Reservation Change Proposal</strong>
+            <span>{{ proposal.reservation.item.name }} · {{ proposalRange(proposal) }}</span>
+            @if (canActOnProposal(proposal)) {
+              <button
+                class="sharing-page__button"
+                type="button"
+                (click)="approveChangeProposal(proposal)"
+              >
+                Approve
+              </button>
+              <button
+                class="sharing-page__button"
+                type="button"
+                (click)="rejectChangeProposal(proposal)"
+              >
+                Reject
+              </button>
+            } @else {
+              <span class="sharing-page__meta">Waiting for the other User.</span>
+              <button
+                class="sharing-page__button"
+                type="button"
+                (click)="dismissAttention('proposal:' + proposal.id)"
+              >
+                Dismiss
+              </button>
+            }
+          </li>
+        }
+        @for (reservation of attentionReceivedReservations(); track reservation.id) {
+          <li class="sharing-page__list-item">
+            <strong>Reservation Request</strong>
+            <span
+              >{{ reservation.item.name }} requested by
+              {{ reservation.requester.displayName }}</span
+            >
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="acceptReservation(reservation)"
+            >
+              Accept
+            </button>
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="declineReservation(reservation)"
+            >
+              Decline
+            </button>
+          </li>
+        }
+        @for (reservation of attentionRequestedReservations(); track reservation.id) {
+          <li class="sharing-page__list-item">
+            <strong>Reservation Request needs new dates</strong>
+            <span>{{ reservation.item.name }} now conflicts with an Accepted Reservation.</span>
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="dismissAttention('reservation-conflict:' + reservation.id)"
+            >
+              Dismiss
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="sharing-page__panel" aria-labelledby="browse-shared-items-title">
+    <h2 id="browse-shared-items-title">
+      <a routerLink="/browse-shared-items">Browse shared items</a>
+    </h2>
+    <p>
+      {{ globalSharedItems().length }} Shared Item{{ globalSharedItems().length === 1 ? '' : 's' }}
+      visible across all Sharing Groups.
+    </p>
+    @if (!loading() && globalSharedItems().length === 0 && groups().length === 0) {
+      <p>Join or create a Sharing Group before there are Shared Items to browse.</p>
+    } @else if (!loading() && globalSharedItems().length === 0) {
+      <p>No Items have been shared yet.</p>
+    } @else {
+      <ul class="sharing-page__plain-list sharing-page__shared-items">
+        @for (entry of globalSharedItems(); track entry.item.id) {
+          <li>
+            <article
+              app-sharing-page-shared-item
+              [item]="entry.item"
+              [currentUserId]="session.user()?.id"
+              [showDetails]="false"
+              [visibleThrough]="entry.visibleThrough"
+            ></article>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="sharing-page__panel" aria-labelledby="create-sharing-group-title">
+    <h2 id="create-sharing-group-title">Create a Sharing Group</h2>
+    <p>A Sharing Group is a trusted relationship space. It does not own your Items.</p>
+    <form class="sharing-page__form" [formGroup]="groupForm" (ngSubmit)="createGroup()" novalidate>
+      <label class="sharing-page__form-label"
+        >Name
+        <input
+          class="sharing-page__form-control"
+          formControlName="name"
+          [maxlength]="groupNameMaxLength"
+          required
+        />
+      </label>
+      @if (groupForm.controls.name.touched && groupForm.controls.name.invalid) {
+        <p class="sharing-page__error">Enter a Sharing Group name.</p>
+      }
+      <button class="sharing-page__button" type="submit" [disabled]="busyKey() === 'create-group'">
+        {{ busyKey() === 'create-group' ? 'Creating…' : 'Create Sharing Group' }}
+      </button>
+    </form>
+  </section>
+
+  <section class="sharing-page__panel" aria-labelledby="my-invitations-title">
+    <h2 id="my-invitations-title">Your Invitations</h2>
+    @if (!loading() && myInvitations().length === 0) {
+      <p>No pending Invitations.</p>
+    } @else {
+      <ul class="sharing-page__plain-list">
+        @for (invitation of myInvitations(); track invitation.id) {
+          <li class="sharing-page__list-item">
+            <strong>{{ invitation.sharingGroup.name }}</strong>
+            <span> invited {{ invitation.invitedEmail }}</span>
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="acceptInvitation(invitation)"
+            >
+              Accept
+            </button>
+            <button
+              class="sharing-page__button"
+              type="button"
+              (click)="declineInvitation(invitation)"
+            >
+              Decline
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section aria-labelledby="groups-title">
+    <h2 id="groups-title">Sharing Groups you joined</h2>
+    @if (!loading() && groups().length === 0) {
+      <p>
+        No Sharing Groups yet. Build your Inventory first, then create one above or accept an
+        Invitation.
+      </p>
+    }
+    @if (!loading() && groups().length > 0 && inventoryItems().length === 0) {
+      <p>Add Items to your Inventory so you can contribute to your Sharing Groups.</p>
+    }
+    @if (groups().length > 0) {
+      <ul class="sharing-page__plain-list sharing-page__groups-list">
+        @for (group of groups(); track group.id) {
+          <li class="sharing-page__panel sharing-page__group-card">
+            <header class="sharing-page__card-header">
+              <div>
+                <h3>
+                  <a [routerLink]="['/sharing-groups', group.id]">{{ group.name }}</a>
+                </h3>
+                <p class="sharing-page__meta">
+                  {{ group.memberCount }} Member{{ group.memberCount === 1 ? '' : 's' }} ·
+                  {{ sharedItemCountFor(group) }} Shared Item{{
+                    sharedItemCountFor(group) === 1 ? '' : 's'
+                  }}
+                  · Created by {{ group.createdBy.displayName }}
+                </p>
+                <p class="sharing-page__meta" aria-label="Member initials">
+                  @for (member of visibleMembers(group); track member.user.id) {
+                    <app-user-avatar
+                      [displayName]="member.user.displayName"
+                      [photoUrl]="member.user.profilePhotoUrl"
+                    />
+                  }
+                  @if (remainingMemberCount(membersFor(group)) > 0) {
+                    <span>+{{ remainingMemberCount(membersFor(group)) }}</span>
+                  }
+                </p>
+              </div>
+              @if (!group.currentUserCanManage) {
+                <button class="sharing-page__button" type="button" (click)="leaveGroup(group)">
+                  Leave Sharing Group
+                </button>
+              }
+            </header>
+
+            <section aria-label="Members">
+              <h4>Members</h4>
+              <ul class="sharing-page__plain-list sharing-page__compact-list">
+                @for (member of membersFor(group); track member.user.id) {
+                  <li class="sharing-page__list-item">
+                    <span class="sharing-page__person">
+                      <app-user-avatar
+                        [displayName]="member.user.displayName"
+                        [photoUrl]="member.user.profilePhotoUrl"
+                      />
+                      {{ member.user.displayName }} {{ member.isCreator ? '(creator)' : '' }}
+                    </span>
+                    @if (group.currentUserCanManage && canRemoveMember(member)) {
+                      <button
+                        class="sharing-page__button"
+                        type="button"
+                        (click)="removeMember(group, member)"
+                      >
+                        Remove Member
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+
+            @if (group.currentUserCanManage) {
+              <section aria-label="Invitations">
+                <h4>Invitations</h4>
+                <form
+                  class="sharing-page__inline-form"
+                  (submit)="
+                    $event.preventDefault();
+                    invite(group, inviteEmail.value);
+                    inviteEmail.value = ''
+                  "
+                >
+                  <label class="sharing-page__form-label"
+                    >Invite a User email
+                    <input class="sharing-page__form-control" #inviteEmail type="email" required />
+                  </label>
+                  <button
+                    class="sharing-page__button"
+                    type="submit"
+                    [disabled]="busyKey() === 'invite:' + group.id"
+                  >
+                    {{ busyKey() === 'invite:' + group.id ? 'Sending…' : 'Send Invitation' }}
+                  </button>
+                </form>
+                @if (invitationsFor(group).length === 0) {
+                  <p>No pending Invitations for this Sharing Group.</p>
+                } @else {
+                  <ul class="sharing-page__plain-list sharing-page__compact-list">
+                    @for (invitation of invitationsFor(group); track invitation.id) {
+                      <li class="sharing-page__list-item">
+                        <span>{{ invitation.invitedEmail }}</span>
+                        <button
+                          class="sharing-page__button"
+                          type="button"
+                          (click)="cancelInvitation(group, invitation)"
+                        >
+                          Cancel Invitation
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </section>
+            }
+
+            <section aria-label="Items shared with this Sharing Group">
+              <h4>Items shared with you</h4>
+              @if (sharedItemsFor(group).length === 0) {
+                <p>No Items are shared with this Sharing Group yet.</p>
+              } @else {
+                <ul class="sharing-page__plain-list sharing-page__shared-items">
+                  @for (item of sharedItemsFor(group); track item.id) {
+                    <li>
+                      <article
+                        app-sharing-page-shared-item
+                        [group]="group"
+                        [item]="item"
+                        [currentUserId]="session.user()?.id"
+                        (reservationRequested)="requestReservation($event)"
+                      ></article>
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="sharing-page__panel" aria-labelledby="reservations-title">
+    <h2 id="reservations-title">Reservations</h2>
+    <div class="sharing-page__reservation-columns">
+      <section aria-labelledby="requested-reservations-title">
+        <h3 id="requested-reservations-title">Reservation requests you made</h3>
+        @if (!loading() && requestedReservations().length === 0) {
+          <p>No Reservation requests made yet.</p>
+        } @else {
+          <ul class="sharing-page__plain-list sharing-page__compact-list">
+            @for (reservation of requestedReservations(); track reservation.id) {
+              <li class="sharing-page__list-item">
+                <strong>{{ reservation.item.name }}</strong>
+                <p>Status: {{ reservation.status }}</p>
+                <p>{{ reservationRange(reservation) }}</p>
+                <p>{{ placementLabel(reservation.item.typicalPlacement) }}</p>
+                @if (reservation.conflictsWithAcceptedReservation) {
+                  <p class="sharing-page__error">
+                    This Reservation Request now conflicts with an Accepted Reservation. Propose new
+                    dates before it can be accepted.
+                  </p>
+                }
+                @if (changeProposalsFor(reservation).length > 0) {
+                  <section aria-label="Reservation Change Proposals">
+                    <h4>Reservation Change Proposals</h4>
+                    <ul>
+                      @for (proposal of changeProposalsFor(reservation); track proposal.id) {
+                        <li class="sharing-page__list-item">
+                          <span
+                            >{{ proposal.status }} · {{ proposalRange(proposal) }} · proposed by
+                            {{ proposal.proposedBy.displayName }}</span
+                          >
+                          @if (canActOnProposal(proposal)) {
+                            <button
+                              class="sharing-page__button"
+                              type="button"
+                              (click)="approveChangeProposal(proposal)"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              class="sharing-page__button"
+                              type="button"
+                              (click)="rejectChangeProposal(proposal)"
+                            >
+                              Reject
+                            </button>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </section>
+                }
+                @if (reservation.status === 'pending') {
+                  <button
+                    class="sharing-page__button"
+                    type="button"
+                    (click)="withdrawReservation(reservation)"
+                  >
+                    Withdraw Reservation Request
+                  </button>
+                }
+                @if (reservation.status === 'accepted') {
+                  <button
+                    class="sharing-page__button"
+                    type="button"
+                    (click)="cancelReservation(reservation)"
+                  >
+                    Cancel Accepted Reservation
+                  </button>
+                }
+                @if (reservation.status === 'pending' || reservation.status === 'accepted') {
+                  <form
+                    class="sharing-page__inline-form"
+                    (submit)="
+                      $event.preventDefault();
+                      proposeReservationChange(reservation, proposedStart.value, proposedEnd.value)
+                    "
+                  >
+                    <label class="sharing-page__form-label"
+                      >Proposed start
+                      <input
+                        class="sharing-page__form-control"
+                        #proposedStart
+                        type="datetime-local"
+                        required
+                      />
+                    </label>
+                    <label class="sharing-page__form-label"
+                      >Proposed end
+                      <input
+                        class="sharing-page__form-control"
+                        #proposedEnd
+                        type="datetime-local"
+                        required
+                      />
+                    </label>
+                    <button class="sharing-page__button" type="submit">Propose date change</button>
+                  </form>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+      <section aria-labelledby="received-reservations-title">
+        <h3 id="received-reservations-title">Reservation requests for your Items</h3>
+        @if (!loading() && receivedReservations().length === 0) {
+          <p>No Reservation requests received yet.</p>
+        } @else {
+          <ul class="sharing-page__plain-list sharing-page__compact-list">
+            @for (reservation of receivedReservations(); track reservation.id) {
+              <li class="sharing-page__list-item">
+                <strong>{{ reservation.item.name }}</strong>
+                <p>
+                  Requested by {{ reservation.requester.displayName }} · Status:
+                  {{ reservation.status }}
+                </p>
+                <p>{{ reservationRange(reservation) }}</p>
+                <p>{{ placementLabel(reservation.item.typicalPlacement) }}</p>
+                @if (reservation.conflictsWithAcceptedReservation) {
+                  <p class="sharing-page__error">
+                    This Reservation Request now conflicts with an Accepted Reservation. Propose new
+                    dates before accepting.
+                  </p>
+                }
+                @if (changeProposalsFor(reservation).length > 0) {
+                  <section aria-label="Reservation Change Proposals">
+                    <h4>Reservation Change Proposals</h4>
+                    <ul>
+                      @for (proposal of changeProposalsFor(reservation); track proposal.id) {
+                        <li class="sharing-page__list-item">
+                          <span
+                            >{{ proposal.status }} · {{ proposalRange(proposal) }} · proposed by
+                            {{ proposal.proposedBy.displayName }}</span
+                          >
+                          @if (canActOnProposal(proposal)) {
+                            <button
+                              class="sharing-page__button"
+                              type="button"
+                              (click)="approveChangeProposal(proposal)"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              class="sharing-page__button"
+                              type="button"
+                              (click)="rejectChangeProposal(proposal)"
+                            >
+                              Reject
+                            </button>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </section>
+                }
+                @if (reservation.status === 'pending') {
+                  <button
+                    class="sharing-page__button"
+                    type="button"
+                    (click)="acceptReservation(reservation)"
+                  >
+                    Accept Reservation
+                  </button>
+                  <button
+                    class="sharing-page__button"
+                    type="button"
+                    (click)="declineReservation(reservation)"
+                  >
+                    Decline Reservation
+                  </button>
+                }
+                @if (reservation.status === 'accepted') {
+                  <button
+                    class="sharing-page__button"
+                    type="button"
+                    (click)="cancelReservation(reservation)"
+                  >
+                    Cancel Accepted Reservation
+                  </button>
+                }
+                @if (reservation.status === 'pending' || reservation.status === 'accepted') {
+                  <form
+                    class="sharing-page__inline-form"
+                    (submit)="
+                      $event.preventDefault();
+                      proposeReservationChange(reservation, proposedStart.value, proposedEnd.value)
+                    "
+                  >
+                    <label class="sharing-page__form-label"
+                      >Proposed start
+                      <input
+                        class="sharing-page__form-control"
+                        #proposedStart
+                        type="datetime-local"
+                        required
+                      />
+                    </label>
+                    <label class="sharing-page__form-label"
+                      >Proposed end
+                      <input
+                        class="sharing-page__form-control"
+                        #proposedEnd
+                        type="datetime-local"
+                        required
+                      />
+                    </label>
+                    <button class="sharing-page__button" type="submit">Propose date change</button>
+                  </form>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+  </section>
+</app-page-layout>

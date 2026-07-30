@@ -1,0 +1,74 @@
+<app-page-layout pageTitle="My stuff">
+  @if (typicalLocationId()) {
+    <p>
+      Showing Items assigned to the selected Typical Location.
+      <a routerLink="/my-stuff">Show all Items</a>
+    </p>
+  }
+  @if (loading()) {
+    <p role="status">Loading My stuff…</p>
+  }
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">
+      {{ error() }}
+      <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
+    </p>
+  }
+  <nav class="sharing-page__tabs" aria-label="My stuff tabs">
+    <button
+      class="sharing-page__button sharing-page__tab-button"
+      type="button"
+      [class.sharing-page__active]="tab() === 'tools'"
+      (click)="tab.set('tools')"
+    >
+      My tools
+    </button>
+    <button
+      class="sharing-page__button sharing-page__tab-button"
+      type="button"
+      [class.sharing-page__active]="tab() === 'approvals'"
+      (click)="tab.set('approvals')"
+    >
+      Approvals
+    </button>
+  </nav>
+  @if (tab() === 'tools') {
+    @if (!loading() && items().length === 0) {
+      <p>No Items yet. Use <a routerLink="/share-a-tool">Share a tool</a> to create one.</p>
+    }
+    <ul class="sharing-page__plain-list sharing-page__card-grid sharing-page__max-three-columns">
+      @for (item of items(); track item.id) {
+        <li class="sharing-page__card sharing-page__item-card">
+          <a app-shared-item-card [routerLink]="['/shared-items', item.id]" [item]="item"></a>
+        </li>
+      }
+    </ul>
+  } @else {
+    @if (!loading() && approvals().length === 0) {
+      <p>No inbound Reservation history yet.</p>
+    }
+    <ul class="sharing-page__plain-list sharing-page__compact-list">
+      @for (reservation of approvals(); track reservation.id) {
+        <li class="sharing-page__reservation-card">
+          <app-reservation-card
+            [reservation]="reservation"
+            [personName]="otherName(reservation)"
+            [personPhotoUrl]="reservation.requester.profilePhotoUrl"
+            mode="owner"
+            [pendingProposalFromOther]="pendingProposalFromOther(reservation)"
+            [pendingProposalByMe]="pendingProposalByMe(reservation)"
+            [canPrimaryAct]="ownerCanAct(reservation)"
+            [canCancelOrPropose]="canCancelOrPropose(reservation)"
+            (accept)="accept($event)"
+            (decline)="decline($event)"
+            (cancel)="cancel($event)"
+            (propose)="propose($event.reservation, $event.startLocal, $event.endLocal)"
+            (approveProposal)="approveProposal($event)"
+            (rejectProposal)="rejectProposal($event)"
+            (withdrawProposal)="withdrawProposal($event)"
+          />
+        </li>
+      }
+    </ul>
+  }
+</app-page-layout>

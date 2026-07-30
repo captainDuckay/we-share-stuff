@@ -1,0 +1,27 @@
+<main class="sharing-page">
+  <h1>Browse shared items</h1>
+  <p>Shared Items visible to you across all Sharing Groups.</p>
+  @if (loading()) {
+    <p role="status">Loading Shared Items…</p>
+  }
+  @if (error()) {
+    <p class="sharing-page__error" role="alert">{{ error() }}</p>
+  }
+  @if (!loading() && sharedItems().length === 0) {
+    <p>No Items have been shared yet. Join or create a Sharing Group to discover Shared Items.</p>
+  } @else {
+    <ul class="sharing-page__plain-list sharing-page__shared-items">
+      @for (item of sharedItems(); track item.id) {
+        <li>
+          <article
+            app-sharing-page-shared-item
+            [item]="item"
+            [currentUserId]="session.user()?.id"
+            [showDetails]="false"
+            [visibleThrough]="item.visibleThrough"
+          ></article>
+        </li>
+      }
+    </ul>
+  }
+</main>

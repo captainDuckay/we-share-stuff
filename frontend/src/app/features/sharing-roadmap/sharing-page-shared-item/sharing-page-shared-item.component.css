@@ -1,0 +1,74 @@
+:host {
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--card-foreground);
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.sharing-page-shared-item__reservation-form {
+  align-items: end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--layout-field-min), 1fr));
+  gap: var(--space-3);
+}
+
+.sharing-page-shared-item__form-label {
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.sharing-page-shared-item__button,
+.sharing-page-shared-item__form-control {
+  font: inherit;
+}
+
+.sharing-page-shared-item__image-container {
+  aspect-ratio: var(--aspect-item-visual);
+  overflow: hidden;
+}
+
+.sharing-page-shared-item__image {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.sharing-page-shared-item__image-placeholder {
+  align-items: center;
+  background: var(--muted);
+  display: flex;
+  font-size: var(--text-5xl);
+  justify-content: center;
+}
+
+.sharing-page-shared-item__content {
+  padding: var(--space-4);
+}
+
+.sharing-page-shared-item__facts {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sharing-page-shared-item__fact-term {
+  font-weight: var(--font-weight-bold);
+}
+
+.sharing-page-shared-item__fact-description {
+  margin: var(--space-1) 0 0;
+}
+
+.sharing-page-shared-item__person {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sharing-page-shared-item__meta {
+  color: var(--muted-foreground);
+}

@@ -1,0 +1,62 @@
+<strong>{{ reservation().item.name }}</strong>
+<p>Status: {{ reservation().status }}</p>
+<p class="sharing-page__person">
+  <app-user-avatar [displayName]="personName()" [photoUrl]="personPhotoUrl()" />
+  {{ personName() }}
+</p>
+<p>{{ range(reservation()) }}</p>
+@if (pendingProposalFromOther(); as proposal) {
+  <button class="sharing-page__button" type="button" (click)="approveProposal.emit(proposal)">
+    Accept change
+  </button>
+  <button class="sharing-page__button" type="button" (click)="rejectProposal.emit(proposal)">
+    Reject change
+  </button>
+} @else if (pendingProposalByMe(); as proposal) {
+  <button class="sharing-page__button" type="button" (click)="withdrawProposal.emit(proposal)">
+    Withdraw change proposal
+  </button>
+} @else if (mode() === 'owner' && canPrimaryAct()) {
+  <button class="sharing-page__button" type="button" (click)="accept.emit(reservation())">
+    Accept
+  </button>
+  <button class="sharing-page__button" type="button" (click)="decline.emit(reservation())">
+    Decline
+  </button>
+  <form
+    class="sharing-page__inline-form"
+    (submit)="$event.preventDefault(); submitProposal(reservation(), start.value, end.value)"
+  >
+    <label class="sharing-page__form-label"
+      >Proposed start
+      <input class="sharing-page__form-control" #start type="datetime-local" required
+    /></label>
+    <label class="sharing-page__form-label"
+      >Proposed end <input class="sharing-page__form-control" #end type="datetime-local" required
+    /></label>
+    <button class="sharing-page__button" type="submit">Propose change</button>
+  </form>
+} @else if (canCancelOrPropose()) {
+  @if (mode() === 'requester' && reservation().status === 'pending') {
+    <button class="sharing-page__button" type="button" (click)="withdraw.emit(reservation())">
+      Withdraw
+    </button>
+  } @else {
+    <button class="sharing-page__button" type="button" (click)="cancel.emit(reservation())">
+      Cancel
+    </button>
+  }
+  <form
+    class="sharing-page__inline-form"
+    (submit)="$event.preventDefault(); submitProposal(reservation(), start.value, end.value)"
+  >
+    <label class="sharing-page__form-label"
+      >Proposed start
+      <input class="sharing-page__form-control" #start type="datetime-local" required
+    /></label>
+    <label class="sharing-page__form-label"
+      >Proposed end <input class="sharing-page__form-control" #end type="datetime-local" required
+    /></label>
+    <button class="sharing-page__button" type="submit">Propose change</button>
+  </form>
+}
