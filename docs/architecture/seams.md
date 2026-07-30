@@ -84,7 +84,7 @@ A Placement Surface is a drawable 2D surface under a Typical Location (for examp
 On a Surface:
 
 - **Placement Slots** are labeled, addressable regions. Many Items may share one Slot. Real-world dimensions are optional but preferred.
-- **Structural Drawings** are non-addressable geometry for visual structure only; they cannot be linked as Typical Placement.
+- **Structural Drawings** are non-addressable geometry for visual structure only; they cannot be linked as Typical Placement and have no user-facing label.
 
 Geometry model (product level, not API schema):
 
@@ -93,6 +93,13 @@ Geometry model (product level, not API schema):
 - Structural Drawings are axis-aligned rectangles or lines/polylines only.
 - Optional physical dimensions may attach to Surface and/or Slot; canvas geometry is authoritative for layout (no save-blocking size mismatch).
 - Fixed draw order: Structural Drawings behind, Placement Slots in front.
+
+Label and identity (product level):
+
+- A Placement Slot has a stable system id separate from its human label; Item links use the id so rename does not break links.
+- Slot labels are free text (trimmed, non-empty, soft max length)—no warehouse code scheme.
+- Labels are unique per Typical Location (case-insensitive), not merely per Surface; create/rename that would collide is rejected.
+- Slot labels are the only address language on a Surface; Structural Drawings do not carry user-facing names.
 
 Only the owning User of the Typical Location edits Surfaces, Slots, and Structural Drawings. Members never edit them.
 

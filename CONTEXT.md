@@ -45,12 +45,12 @@ A drawable 2D surface belonging to a Typical Location, such as a wall of cabinet
 _Avoid_: Floor plan, layout document, warehouse map, current placement map
 
 **Placement Slot**:
-A labeled addressable region on a Placement Surface that one or more Items may link to as their Typical Placement. Real-world dimensions are optional but preferred; the label is the primary findability contract.
-_Avoid_: Bin SKU, stock location, geo-coordinate, hotspot only
+A labeled addressable region on a Placement Surface that one or more Items may link to as their Typical Placement; identity is a stable id separate from a free-text human label that is unique per Typical Location (case-insensitive) and is the primary findability contract. Real-world dimensions are optional but preferred.
+_Avoid_: Bin SKU, stock location, geo-coordinate, hotspot only, label-as-identity
 
 **Structural Drawing**:
-Non-addressable geometry on a Placement Surface that provides visual structure—cabinet outlines, wall edges, dividers—and cannot be linked as Typical Placement.
-_Avoid_: Placement Slot, decoration-only (too vague), background
+Non-addressable geometry on a Placement Surface that provides visual structure—cabinet outlines, wall edges, dividers—cannot be linked as Typical Placement, and has no user-facing label.
+_Avoid_: Placement Slot, decoration-only (too vague), background, structural caption
 
 **Sharing Group**:
 A mutual relationship space created by a User for sharing Items with other Users, such as a family group, friend group, or association. Any Member may share their own Items into the Sharing Group, while the creating User manages membership for now.
