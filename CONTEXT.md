@@ -41,11 +41,11 @@ The more precise place where an Item is normally kept within a Typical Location.
 _Avoid_: Current placement, location, geo-location
 
 **Placement Surface**:
-A drawable 2D surface belonging to a Typical Location, such as a wall of cabinets or a bank of storage units, on which Placement Slots and Structural Drawings are arranged. A Typical Location may have many Placement Surfaces.
-_Avoid_: Floor plan, layout document, warehouse map, current placement map
+A drawable 2D surface belonging to a Typical Location, such as a wall of cabinets or a bank of storage units, on which Placement Slots and Structural Drawings are arranged on an infinite millimetre sketch plane whose extent is derived from content. A Typical Location may have many Placement Surfaces.
+_Avoid_: Floor plan, layout document, warehouse map, current placement map, fixed canvas size
 
 **Placement Slot**:
-A labeled addressable region on a Placement Surface that one or more Items may link to as their Typical Placement; identity is a stable id separate from a free-text human label that is unique per Typical Location (case-insensitive) and is the primary findability contract. Real-world dimensions are optional but preferred.
+A labeled addressable region on a Placement Surface that one or more Items may link to as their Typical Placement; identity is a stable id separate from a free-text human label that is unique per Typical Location (case-insensitive) and is the primary findability contract. Geometry is an axis-aligned rectangle in millimetres (sketch size and detail width/height are the same values).
 _Avoid_: Bin SKU, stock location, geo-coordinate, hotspot only, label-as-identity
 
 **Structural Drawing**:

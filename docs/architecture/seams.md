@@ -83,16 +83,18 @@ A Placement Surface is a drawable 2D surface under a Typical Location (for examp
 
 On a Surface:
 
-- **Placement Slots** are labeled, addressable regions. Many Items may share one Slot. Real-world dimensions are optional but preferred.
+- **Placement Slots** are labeled, addressable regions. Many Items may share one Slot.
 - **Structural Drawings** are non-addressable geometry for visual structure only; they cannot be linked as Typical Placement and have no user-facing label.
 
 Geometry model (product level, not API schema):
 
-- A Surface uses an abstract unit canvas; optional surface physical size provides real-world scale.
+- Sketch plane is **infinite** (pan/zoom); the owner does not set a surface canvas size. Surface extent is **derived** from structure + slots.
+- World units are **millimetres** (one model for geometry and size fields—not abstract units with a separate scale).
 - Placement Slots are axis-aligned rectangles only.
 - Structural Drawings are axis-aligned rectangles or lines/polylines only.
-- Optional physical dimensions may attach to Surface and/or Slot; canvas geometry is authoritative for layout (no save-blocking size mismatch).
+- Slot width/height in the detail UI and rectangle size on the sketch are the **same values** (edit either; the other updates).
 - Fixed draw order: Structural Drawings behind, Placement Slots in front.
+- Refines geometry ticket #2: drops “abstract unit canvas + optional surface physical size as scale” in favor of mm-native infinite plane.
 
 Label and identity (product level):
 
@@ -100,6 +102,12 @@ Label and identity (product level):
 - Slot labels are free text (trimmed, non-empty, soft max length)—no warehouse code scheme.
 - Labels are unique per Typical Location (case-insensitive), not merely per Surface; create/rename that would collide is rejected.
 - Slot labels are the only address language on a Surface; Structural Drawings do not carry user-facing names.
+
+Owner editor intent (product level, from prototype #7):
+
+- Multiple Surfaces via **tabs** under the Typical Location.
+- Draw tools live **inside** the sketch window as a vertical icon rail (Photoshop-like), not a CAD ribbon outside the sketch.
+- Wheel zoom and pan on the infinite plane; schematic (not warehouse CAD).
 
 Only the owning User of the Typical Location edits Surfaces, Slots, and Structural Drawings. Members never edit them.
 
