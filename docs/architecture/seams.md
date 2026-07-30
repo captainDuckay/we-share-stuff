@@ -105,9 +105,11 @@ Label and identity (product level):
 
 Owner editor intent (product level, from prototype #7):
 
+- **Entry:** My Page → Typical Location management (not a primary path from the Item editor for building Surfaces).
 - Multiple Surfaces via **tabs** under the Typical Location.
 - Draw tools live **inside** the sketch window as a vertical icon rail (Photoshop-like), not a CAD ribbon outside the sketch.
 - Wheel zoom and pan on the infinite plane; schematic (not warehouse CAD).
+- **Assigning Items to Slots** is available in both places: slot/surface details on the canvas page, and the Item editor (Typical Placement link). Linking rules themselves stay for the Item Typical Placement ticket.
 
 Only the owning User of the Typical Location edits Surfaces, Slots, and Structural Drawings. Members never edit them.
 
