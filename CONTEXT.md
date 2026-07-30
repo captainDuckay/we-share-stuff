@@ -37,8 +37,20 @@ A reusable saved place belonging to a User where Items are normally kept, such a
 _Avoid_: Current location, geo-location, address
 
 **Typical Placement**:
-The more precise place where an Item is normally kept within a Typical Location, such as a garage, cabinet, shelf, or marked container.
+The more precise place where an Item is normally kept within a Typical Location. When the Item is linked to a Placement Slot, that link plus an optional free-text note is the Typical Placement; otherwise Typical Placement may be free text only.
 _Avoid_: Current placement, location, geo-location
+
+**Placement Surface**:
+A drawable 2D surface belonging to a Typical Location, such as a wall of cabinets or a bank of storage units, on which Placement Slots and Structural Drawings are arranged. A Typical Location may have many Placement Surfaces.
+_Avoid_: Floor plan, layout document, warehouse map, current placement map
+
+**Placement Slot**:
+A labeled addressable region on a Placement Surface that one or more Items may link to as their Typical Placement. Real-world dimensions are optional but preferred; the label is the primary findability contract.
+_Avoid_: Bin SKU, stock location, geo-coordinate, hotspot only
+
+**Structural Drawing**:
+Non-addressable geometry on a Placement Surface that provides visual structure—cabinet outlines, wall edges, dividers—and cannot be linked as Typical Placement.
+_Avoid_: Placement Slot, decoration-only (too vague), background
 
 **Sharing Group**:
 A mutual relationship space created by a User for sharing Items with other Users, such as a family group, friend group, or association. Any Member may share their own Items into the Sharing Group, while the creating User manages membership for now.

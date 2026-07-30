@@ -68,11 +68,31 @@ An Item must have a Typical Location before it can be shared.
 
 ### Typical Placement
 
-An Item-specific precise placement within a Typical Location, such as "garage", "cabinet E27", or "behind the shed".
+An Item-specific precise placement within a Typical Location.
+
+Typical Placement is either:
+
+- a link to a Placement Slot (plus optional free-text note), when the owning User has linked the Item; or
+- free text only, when the Item is not linked to a slot (including when Placement Surfaces exist on the Location but this Item is not linked).
 
 Typical Placement is optional and encouraged, not required. It is hidden from other Users until a Reservation is accepted.
 
-Avoid naming these concepts as current location, geo-location, or address in domain language.
+### Placement Surface and Placement Slot
+
+A Placement Surface is a drawable 2D surface under a Typical Location (for example one wall of storage). A Location may have many Surfaces.
+
+On a Surface:
+
+- **Placement Slots** are labeled, addressable regions. Many Items may share one Slot. Real-world dimensions are optional but preferred.
+- **Structural Drawings** are non-addressable geometry for visual structure only; they cannot be linked as Typical Placement.
+
+Only the owning User of the Typical Location edits Surfaces, Slots, and Structural Drawings. Members never edit them.
+
+After Reservation acceptance, the borrowing User may see the Item's Placement Slot plus its parent Placement Surface—not the owner's full multi-surface atlas. Unrelated Surfaces and the editor remain private.
+
+Hard delete of a Slot or Surface is blocked while any Item still references a Slot on it (reassign first). Rename/move/resize stays live for the owner; accepted borrowers keep a readable placement snapshot (at least label and Surface name).
+
+Avoid naming these concepts as current location, geo-location, address, warehouse map, or live tracking in domain language.
 
 ## Sharing Group seam
 
