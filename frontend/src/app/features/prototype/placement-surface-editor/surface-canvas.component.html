@@ -1,93 +1,135 @@
-@let surface = store.activeSurface();
-@let sel = store.selection();
-
-<svg
-  #svg
-  class="proto-canvas"
-  [attr.viewBox]="`0 0 ${surface.canvas.width} ${surface.canvas.height}`"
-  role="img"
-  [attr.aria-label]="`Placement Surface ${surface.name}`"
-  (click)="onCanvasClick($event)"
-  (pointermove)="onPointerMove($event)"
-  (pointerup)="onPointerUp($event)"
-  (pointercancel)="onPointerUp($event)"
+<div
+  #host
+  class="proto-canvas-host"
+  [class.proto-canvas-host--pan]="store.tool() === 'pan'"
 >
-  <rect
-    class="proto-canvas__bg"
-    x="0"
-    y="0"
-    [attr.width]="surface.canvas.width"
-    [attr.height]="surface.canvas.height"
-  />
-
-  <!-- Structure behind -->
-  <g class="proto-canvas__structure" aria-hidden="true">
-    @for (shape of surface.structures; track shape.id) {
-      @if (shape.kind === 'structure-rect') {
-        <rect
-          class="proto-canvas__struct-rect"
-          [class.proto-canvas__selected]="sel?.id === shape.id"
-          [attr.x]="shape.x"
-          [attr.y]="shape.y"
-          [attr.width]="shape.width"
-          [attr.height]="shape.height"
-          (pointerdown)="onShapePointerDown($event, 'structure-rect', shape.id)"
-        />
-        @if (sel?.id === shape.id) {
-          <rect
-            class="proto-canvas__handle"
-            [attr.x]="shape.x + shape.width - 8"
-            [attr.y]="shape.y + shape.height - 8"
-            width="12"
-            height="12"
-            (pointerdown)="onShapePointerDown($event, 'structure-rect', shape.id, 'resize')"
-          />
-        }
-      } @else {
-        <polyline
-          class="proto-canvas__struct-line"
-          [class.proto-canvas__selected]="sel?.id === shape.id"
-          [attr.points]="linePoints(shape.points)"
-          (pointerdown)="onShapePointerDown($event, 'structure-line', shape.id)"
-        />
-      }
-    }
-  </g>
-
-  <!-- Slots in front -->
-  <g class="proto-canvas__slots">
-    @for (slot of surface.slots; track slot.id) {
-      <g
-        class="proto-canvas__slot"
-        [class.proto-canvas__selected]="sel?.id === slot.id"
-        (pointerdown)="onShapePointerDown($event, 'slot', slot.id)"
+  <svg
+    #svg
+    class="proto-canvas"
+    [attr.viewBox]="viewBox()"
+    preserveAspectRatio="xMidYMid meet"
+    role="img"
+    [attr.aria-label]="`Placement Surface ${store.activeSurface().name}`"
+    (wheel)="onWheel($event)"
+    (pointerdown)="onCanvasPointerDown($event)"
+    (click)="onCanvasClick($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerUp($event)"
+    (contextmenu)="$event.preventDefault()"
+  >
+    <defs>
+      <pattern
+        [attr.id]="gridPatternId()"
+        width="40"
+        height="40"
+        patternUnits="userSpaceOnUse"
       >
-        <rect
-          [attr.x]="slot.x"
-          [attr.y]="slot.y"
-          [attr.width]="slot.width"
-          [attr.height]="slot.height"
-          [attr.rx]="4"
+        <path
+          d="M 40 0 L 0 0 0 40"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="0.5"
+          opacity="0.25"
         />
-        <text
-          [attr.x]="slot.x + slot.width / 2"
-          [attr.y]="slot.y + slot.height / 2"
-          text-anchor="middle"
-          dominant-baseline="middle"
-        >
-          {{ slot.label }}
-        </text>
-        @if (sel?.id === slot.id) {
+      </pattern>
+    </defs>
+
+    <!-- Infinite feel: paint grid across a huge world rect following the camera -->
+    <rect
+      class="proto-canvas__grid"
+      [attr.x]="camX() - camW()"
+      [attr.y]="camY() - camH()"
+      [attr.width]="camW() * 3"
+      [attr.height]="camH() * 3"
+      [attr.fill]="`url(#${gridPatternId()})`"
+    />
+
+    @if (store.contentBounds(); as bounds) {
+      <rect
+        class="proto-canvas__content-hint"
+        [attr.x]="bounds.minX - 12"
+        [attr.y]="bounds.minY - 12"
+        [attr.width]="bounds.width + 24"
+        [attr.height]="bounds.height + 24"
+        rx="6"
+      />
+    }
+
+    @let surface = store.activeSurface();
+    @let sel = store.selection();
+
+    <!-- Structure behind -->
+    <g class="proto-canvas__structure" aria-hidden="true">
+      @for (shape of surface.structures; track shape.id) {
+        @if (shape.kind === 'structure-rect') {
           <rect
-            class="proto-canvas__handle"
-            [attr.x]="slot.x + slot.width - 8"
-            [attr.y]="slot.y + slot.height - 8"
-            width="12"
-            height="12"
-            (pointerdown)="onShapePointerDown($event, 'slot', slot.id, 'resize')"
+            class="proto-canvas__struct-rect"
+            [class.proto-canvas__selected]="sel?.id === shape.id"
+            [attr.x]="shape.x"
+            [attr.y]="shape.y"
+            [attr.width]="shape.width"
+            [attr.height]="shape.height"
+            (pointerdown)="onShapePointerDown($event, 'structure-rect', shape.id)"
+          />
+          @if (sel?.id === shape.id) {
+            <rect
+              class="proto-canvas__handle"
+              [attr.x]="shape.x + shape.width - 8"
+              [attr.y]="shape.y + shape.height - 8"
+              width="12"
+              height="12"
+              (pointerdown)="onShapePointerDown($event, 'structure-rect', shape.id, 'resize')"
+            />
+          }
+        } @else {
+          <polyline
+            class="proto-canvas__struct-line"
+            [class.proto-canvas__selected]="sel?.id === shape.id"
+            [attr.points]="linePoints(shape.points)"
+            (pointerdown)="onShapePointerDown($event, 'structure-line', shape.id)"
           />
         }
-      </g>
-    }
-  </g>
-</svg>
+      }
+    </g>
+
+    <!-- Slots in front -->
+    <g class="proto-canvas__slots">
+      @for (slot of surface.slots; track slot.id) {
+        <g
+          class="proto-canvas__slot"
+          [class.proto-canvas__selected]="sel?.id === slot.id"
+          (pointerdown)="onShapePointerDown($event, 'slot', slot.id)"
+        >
+          <rect
+            [attr.x]="slot.x"
+            [attr.y]="slot.y"
+            [attr.width]="slot.width"
+            [attr.height]="slot.height"
+            [attr.rx]="4"
+          />
+          <text
+            [attr.x]="slot.x + slot.width / 2"
+            [attr.y]="slot.y + slot.height / 2"
+            text-anchor="middle"
+            dominant-baseline="middle"
+          >
+            {{ slot.label }}
+          </text>
+          @if (sel?.id === slot.id) {
+            <rect
+              class="proto-canvas__handle"
+              [attr.x]="slot.x + slot.width - 8"
+              [attr.y]="slot.y + slot.height - 8"
+              width="12"
+              height="12"
+              (pointerdown)="onShapePointerDown($event, 'slot', slot.id, 'resize')"
+            />
+          }
+        </g>
+      }
+    </g>
+  </svg>
+
+  <p class="proto-canvas__extent" aria-live="polite">{{ contentBoundsLabel() }}</p>
+</div>

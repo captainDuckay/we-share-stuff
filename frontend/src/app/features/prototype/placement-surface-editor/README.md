@@ -27,11 +27,19 @@ Open: [http://127.0.0.1:4200/prototype/placement-surface-editor?variant=A](http:
 
 | Key | Name | Structural idea |
 | --- | --- | --- |
-| **A** | Tool palette + tabs | Desktop schematic: surface tabs, draw modes, side properties |
-| **B** | Surface cards → sketch | Manage surfaces as cards first; full-bleed sketch second |
+| **D** (default) | Preferred · in-sketch tools | Surface tabs + vertical icon tools *inside* sketch; infinite pan/zoom; content-derived extent |
+| **A** | Tool palette + tabs | Earlier: external tool bar + fixed canvas feel |
+| **B** | Surface cards → sketch | Surfaces as cards first; full-bleed sketch second |
 | **C** | Label-first inventory | Slot labels lead; canvas is a supporting map |
 
 Shared in-memory scene (reload wipes). Geometry/labels match decisions from tickets #2 and #4 at product level only.
+
+### Preferred direction (feedback on #7)
+
+- Tools live inside the sketch window, vertical rail, function icons (Photoshop-like)
+- Sketch is zoomable (wheel) and infinite (pan tool / middle-drag)
+- No user-facing surface canvas size — extent is derived from structure + slots
+- Surface tabs kept for multi-surface under a Typical Location
 
 ## Not product
 

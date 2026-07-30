@@ -3,8 +3,9 @@
  * Not production domain models. Geometry matches decisions #2 + #4 at product level.
  */
 
-export type ToolMode = 'select' | 'slot' | 'structure-rect' | 'structure-line';
+export type ToolMode = 'select' | 'pan' | 'slot' | 'structure-rect' | 'structure-line';
 
+/** Legacy seed only — canvas size is not a user concept; content bounds are derived. */
 export interface CanvasSize {
   width: number;
   height: number;
@@ -13,6 +14,16 @@ export interface CanvasSize {
 export interface PhysicalSizeCm {
   widthCm: number | null;
   heightCm: number | null;
+}
+
+/** Axis-aligned bounds in world units (derived from structure + slots). */
+export interface ContentBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
 }
 
 export interface SlotShape {
@@ -179,4 +190,42 @@ export function nextUniqueLabel(location: TypicalLocationDraft, base: string): s
     candidate = `${base} ${n}`;
   }
   return candidate;
+}
+
+/** Surface extent is derived from content — not a user-authored canvas size. */
+export function contentBoundsOf(surface: PlacementSurfaceDraft): ContentBounds | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let any = false;
+
+  const include = (x: number, y: number, w = 0, h = 0) => {
+    any = true;
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  };
+
+  for (const slot of surface.slots) {
+    include(slot.x, slot.y, slot.width, slot.height);
+  }
+  for (const shape of surface.structures) {
+    if (shape.kind === 'structure-rect') {
+      include(shape.x, shape.y, shape.width, shape.height);
+    } else {
+      for (const p of shape.points) include(p.x, p.y);
+    }
+  }
+
+  if (!any) return null;
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
 }

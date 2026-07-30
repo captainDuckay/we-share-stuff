@@ -1,0 +1,116 @@
+<div class="vd">
+  <header class="vd__header">
+    <div>
+      <p class="vd__eyebrow">Typical Location · {{ store.location().name }}</p>
+      <h2>Placement Surfaces</h2>
+      <p class="vd__lede">
+        Tabs switch surfaces. Tools live <em>inside</em> the sketch (vertical, icon). Wheel zoom ·
+        pan tool or middle-drag · infinite plane · extent from content, not a surface size field.
+      </p>
+    </div>
+  </header>
+
+  <div class="vd__tabs" role="tablist" aria-label="Surfaces">
+    @for (surface of store.location().surfaces; track surface.id) {
+      <button
+        type="button"
+        role="tab"
+        [attr.aria-selected]="store.activeSurfaceId() === surface.id"
+        [class.vd__tab--active]="store.activeSurfaceId() === surface.id"
+        (click)="onSelectSurface(surface.id)"
+      >
+        {{ surface.name }}
+        <span class="vd__tab-meta">{{ surface.slots.length }} slots</span>
+      </button>
+    }
+    <button type="button" class="vd__add" (click)="onAddSurface()">+ Surface</button>
+  </div>
+
+  <div class="vd__workspace">
+    <div class="vd__sketch" aria-label="Sketch window">
+      <!-- Photoshop-style vertical tool rail inside the sketch -->
+      <div class="vd__tool-rail" role="toolbar" aria-label="Sketch tools">
+        @for (tool of tools; track tool.id) {
+          <button
+            type="button"
+            class="vd__tool"
+            [class.vd__tool--active]="store.tool() === tool.id"
+            [attr.title]="tool.hint"
+            [attr.aria-label]="tool.label"
+            [attr.aria-pressed]="store.tool() === tool.id"
+            (click)="setTool(tool.id)"
+          >
+            <app-material-symbol-icon [name]="tool.icon" aria-hidden="true" />
+          </button>
+        }
+        <div class="vd__tool-rail-sep" aria-hidden="true"></div>
+        <button
+          type="button"
+          class="vd__tool"
+          title="Fit content in view"
+          aria-label="Fit content"
+          (click)="fit()"
+        >
+          <app-material-symbol-icon name="fit-screen" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="vd__tool vd__tool--danger"
+          title="Delete selection"
+          aria-label="Delete selection"
+          [disabled]="!store.selection()"
+          (click)="store.deleteSelection()"
+        >
+          <app-material-symbol-icon name="delete" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div class="vd__canvas-wrap">
+        <app-prototype-surface-canvas />
+      </div>
+    </div>
+
+    <aside class="vd__aside" aria-label="Selection properties">
+      <h3>Surface</h3>
+      <label>
+        Name
+        <input
+          [ngModel]="surfaceNameDraft || store.activeSurface().name"
+          (ngModelChange)="surfaceNameDraft = $event"
+          (change)="applySurfaceName()"
+        />
+      </label>
+      <p class="vd__note">
+        No canvas width/height to set. Dashed outline on the sketch is the
+        <strong>derived</strong> extent of structure + slots.
+      </p>
+
+      @if (store.selectedSlot(); as slot) {
+        <h3>Slot · findability</h3>
+        <label>
+          Label
+          <input [(ngModel)]="slotLabelDraft" (change)="applySlotLabel()" />
+        </label>
+        <fieldset>
+          <legend>Size cm <span class="vd__optional">(preferred, optional)</span></legend>
+          <div class="vd__row">
+            <label>
+              W
+              <input [(ngModel)]="slotW" inputmode="decimal" (change)="applySlotPhysical()" />
+            </label>
+            <label>
+              H
+              <input [(ngModel)]="slotH" inputmode="decimal" (change)="applySlotPhysical()" />
+            </label>
+          </div>
+        </fieldset>
+        <p class="vd__note">Stable id: <code>{{ slot.id }}</code></p>
+      } @else if (store.selection()) {
+        <h3>Structural drawing</h3>
+        <p class="vd__note">Visual only — no label, never linkable.</p>
+      } @else {
+        <p class="vd__note">Select a slot to edit its label. Wheel to zoom; pan tool to roam.</p>
+      }
+    </aside>
+  </div>
+</div>

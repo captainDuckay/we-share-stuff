@@ -6,8 +6,10 @@
 >
   <div class="proto-banner">
     <strong>Prototype</strong>
-    — in-memory only · reload wipes state · flip variants with the bottom bar or
-    <code>?variant=A|B|C</code>
+    — in-memory only · default <strong>D</strong> (preferred after feedback) ·
+    <code>?variant=D|A|B|C</code>
+    ·
+    <a routerLink="/prototype/placement-surface-editor" [queryParams]="{ variant: 'D' }">D</a>
     ·
     <a routerLink="/prototype/placement-surface-editor" [queryParams]="{ variant: 'A' }">A</a>
     ·
@@ -17,6 +19,9 @@
   </div>
 
   @switch (variant()) {
+    @case ('A') {
+      <app-prototype-variant-a />
+    }
     @case ('B') {
       <app-prototype-variant-b />
     }
@@ -24,7 +29,7 @@
       <app-prototype-variant-c />
     }
     @default {
-      <app-prototype-variant-a />
+      <app-prototype-variant-d />
     }
   }
 

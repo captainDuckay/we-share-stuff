@@ -6,6 +6,7 @@ import {
   SlotShape,
   StructureShape,
   ToolMode,
+  contentBoundsOf,
   createSeedLocation,
   isLabelTaken,
   newId,
@@ -41,6 +42,9 @@ export class PrototypeSceneStore {
     const surface = this.locationSignal().surfaces.find((s) => s.id === sel.surfaceId);
     return surface?.slots.find((s) => s.id === sel.id) ?? null;
   });
+
+  /** Derived sketch extent — user never sets surface canvas size. */
+  readonly contentBounds = computed(() => contentBoundsOf(this.activeSurface()));
 
   readonly snapshot = computed((): SceneSnapshot => ({
     location: this.locationSignal(),
@@ -115,8 +119,8 @@ export class PrototypeSceneStore {
       kind: 'slot',
       id: newId('slot'),
       label,
-      x: Math.max(0, x - 60),
-      y: Math.max(0, y - 40),
+      x: x - 60,
+      y: y - 40,
       width: 120,
       height: 80,
       widthCm: null,
@@ -133,8 +137,8 @@ export class PrototypeSceneStore {
     const shape: StructureShape = {
       kind: 'structure-rect',
       id: newId('struct'),
-      x: Math.max(0, x - 80),
-      y: Math.max(0, y - 50),
+      x: x - 80,
+      y: y - 50,
       width: 160,
       height: 100,
     };
@@ -150,7 +154,7 @@ export class PrototypeSceneStore {
       kind: 'structure-line',
       id: newId('struct'),
       points: [
-        { x: Math.max(0, x - 60), y },
+        { x: x - 60, y },
         { x: x + 60, y },
       ],
     };
@@ -182,19 +186,20 @@ export class PrototypeSceneStore {
   moveSelection(dx: number, dy: number): void {
     const sel = this.selectionSignal();
     if (!sel) return;
+    // Infinite plane: no clamp to a fixed canvas origin.
     if (sel.kind === 'slot') {
       this.mapSlot(sel.id, (slot) => ({
         ...slot,
-        x: Math.max(0, slot.x + dx),
-        y: Math.max(0, slot.y + dy),
+        x: slot.x + dx,
+        y: slot.y + dy,
       }));
     } else if (sel.kind === 'structure-rect') {
       this.mapStructure(sel.id, (shape) => {
         if (shape.kind !== 'structure-rect') return shape;
         return {
           ...shape,
-          x: Math.max(0, shape.x + dx),
-          y: Math.max(0, shape.y + dy),
+          x: shape.x + dx,
+          y: shape.y + dy,
         };
       });
     } else if (sel.kind === 'structure-line') {

@@ -1,0 +1,184 @@
+.vd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+}
+
+.vd__eyebrow {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+
+.vd__header h2 {
+  margin: 0.15rem 0;
+}
+
+.vd__lede {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+}
+
+.vd__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+}
+
+.vd__tabs button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.vd__tab--active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.vd__tab-meta {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.vd__add {
+  border-style: dashed;
+}
+
+.vd__workspace {
+  display: grid;
+  grid-template-columns: 1fr minmax(12rem, 15rem);
+  gap: var(--space-3, 0.75rem);
+  align-items: stretch;
+  min-height: 28rem;
+}
+
+@media (max-width: 48rem) {
+  .vd__workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vd__sketch {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  min-height: 28rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 0.375rem);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.vd__tool-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.35rem;
+  background: light-dark(oklch(94% 0.015 75), oklch(18% 0.02 60));
+  border-right: 1px solid var(--border);
+  z-index: 2;
+}
+
+.vd__tool {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border-radius: var(--radius-sm, 0.375rem);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--foreground);
+}
+
+.vd__tool:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.vd__tool--active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.vd__tool--danger:not(:disabled) {
+  color: var(--destructive-text);
+}
+
+.vd__tool-rail-sep {
+  width: 1.5rem;
+  height: 1px;
+  margin: 0.25rem 0;
+  background: var(--border);
+}
+
+.vd__canvas-wrap {
+  min-width: 0;
+  min-height: 28rem;
+  height: 100%;
+}
+
+.vd__canvas-wrap ::ng-deep .proto-canvas-host,
+.vd__canvas-wrap ::ng-deep .proto-canvas {
+  min-height: 28rem;
+  height: 100%;
+  max-height: none;
+}
+
+.vd__aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-3, 0.75rem);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 0.375rem);
+}
+
+.vd__aside h3 {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+}
+
+.vd__aside h3:first-child {
+  margin-top: 0;
+}
+
+.vd__aside label,
+.vd__aside fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.vd__optional {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.vd__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2, 0.5rem);
+}
+
+.vd__note {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+
+.vd__note code {
+  font-size: 0.75rem;
+}
