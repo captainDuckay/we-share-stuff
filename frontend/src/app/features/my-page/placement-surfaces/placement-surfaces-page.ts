@@ -75,6 +75,10 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly surfaces = signal<readonly PlacementSurfaceSummary[]>([]);
   readonly activeSurfaceId = signal('');
   readonly detail = signal<PlacementSurfaceDetail | null>(null);
+  /** Slot id/label by surface — for location-wide uniqueness (not only active surface). */
+  readonly #slotCatalog = signal<
+    ReadonlyMap<string, readonly { readonly id: string; readonly label: string }[]>
+  >(new Map());
   readonly tool = signal<ToolMode>('select');
   readonly selection = signal<Selection | null>(null);
   readonly loading = signal(true);
@@ -198,6 +202,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       const response = await this.#api.create(this.locationId(), { name });
       const surface = response.placementSurface as PlacementSurfaceSummary;
       this.surfaces.update((list) => [...list, surface]);
+      this.#rememberSurfaceSlots(surface.id, []);
       this.announcement.set(`${surface.name} created.`);
       await this.#loadDetail(surface.id);
     } catch {
@@ -247,6 +252,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       await this.#api.remove(this.locationId(), detail.id);
       const remaining = this.surfaces().filter((surface) => surface.id !== detail.id);
       this.surfaces.set(remaining);
+      this.#forgetSurfaceSlots(detail.id);
       this.selection.set(null);
       this.announcement.set(`${detail.name} deleted.`);
       if (remaining.length === 0) {
@@ -274,10 +280,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
     this.formError.set('');
     try {
       if (event.tool === 'slot') {
-        const label = nextUniqueLabel(
-          [{ slots: detail.slots }, ...this.#otherSurfaceSlotLabels()],
-          'Slot',
-        );
+        await this.#ensureSlotCatalog();
+        const label = nextUniqueLabel(this.#surfacesForLabelUniqueness(detail.slots), 'Slot');
         const response = await this.#api.createSlot(this.locationId(), detail.id, {
           label,
           x: roundMm(event.x - DEFAULT_SLOT_WIDTH_MM / 2),
@@ -287,6 +291,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
         });
         const slot = response.placementSlot;
         this.detail.update((d) => (d ? { ...d, slots: [...d.slots, slot] } : d));
+        this.#rememberSurfaceSlots(detail.id, [...detail.slots, slot]);
         this.#bumpActiveSlotCount(1);
         this.selection.set({ kind: 'slot', id: slot.id });
         this.tool.set('select');
@@ -454,11 +459,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
       return;
     }
     if (label === slot.label) return;
-    const allSurfaces = [
-      { slots: detail.slots },
-      ...this.#otherSurfaceSlotLabels(),
-    ];
-    if (isLabelTaken(allSurfaces, label, slot.id)) {
+    await this.#ensureSlotCatalog();
+    if (isLabelTaken(this.#surfacesForLabelUniqueness(detail.slots), label, slot.id)) {
       this.formError.set(
         `“${label}” is already used on this Typical Location. Labels must be unique.`,
       );
@@ -472,14 +474,18 @@ export class PlacementSurfacesPage implements AfterViewInit {
         label,
       });
       const updated = response.placementSlot;
+      const nextSlots = detail.slots.map((entry) =>
+        entry.id === updated.id ? updated : entry,
+      );
       this.detail.update((d) =>
         d
           ? {
               ...d,
-              slots: d.slots.map((entry) => (entry.id === updated.id ? updated : entry)),
+              slots: nextSlots,
             }
           : d,
       );
+      this.#rememberSurfaceSlots(detail.id, nextSlots);
       this.announcement.set(`Slot label → “${updated.label}”.`);
     } catch (error) {
       this.formError.set(this.#friendlyError(error, 'We could not rename that Slot.'));
@@ -552,9 +558,9 @@ export class PlacementSurfacesPage implements AfterViewInit {
     try {
       if (sel.kind === 'slot') {
         await this.#api.removeSlot(this.locationId(), detail.id, sel.id);
-        this.detail.update((d) =>
-          d ? { ...d, slots: d.slots.filter((slot) => slot.id !== sel.id) } : d,
-        );
+        const nextSlots = detail.slots.filter((slot) => slot.id !== sel.id);
+        this.detail.update((d) => (d ? { ...d, slots: nextSlots } : d));
+        this.#rememberSurfaceSlots(detail.id, nextSlots);
         this.#bumpActiveSlotCount(-1);
         this.announcement.set('Slot deleted.');
       } else {
@@ -602,6 +608,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       }
       this.locationName.set(location.name);
       this.surfaces.set(surfacesResponse.placementSurfaces);
+      await this.#ensureSlotCatalog();
       if (surfacesResponse.placementSurfaces.length > 0) {
         await this.#loadDetail(surfacesResponse.placementSurfaces[0]!.id);
       }
@@ -622,6 +629,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       this.activeSurfaceId.set(detail.id);
       this.surfaceModel.set({ name: detail.name });
       this.selection.set(null);
+      this.#rememberSurfaceSlots(detail.id, detail.slots);
     } catch {
       this.formError.set('We could not load that Placement Surface.');
     } finally {
@@ -751,9 +759,61 @@ export class PlacementSurfacesPage implements AfterViewInit {
     }
   }
 
-  #otherSurfaceSlotLabels(): { slots: { id: string; label: string }[] }[] {
-    // Only the active surface detail is loaded with slots; uniqueness is also enforced by the API.
-    return [];
+  /**
+   * Surfaces used for location-wide slot label uniqueness.
+   * Active surface slots come from live detail; others from the catalog.
+   */
+  #surfacesForLabelUniqueness(
+    activeSlots: readonly { readonly id: string; readonly label: string }[],
+  ): { slots: readonly { readonly id: string; readonly label: string }[] }[] {
+    const activeId = this.activeSurfaceId();
+    const others = [...this.#slotCatalog().entries()]
+      .filter(([surfaceId]) => surfaceId !== activeId)
+      .map(([, slots]) => ({ slots }));
+    return [{ slots: activeSlots }, ...others];
+  }
+
+  #rememberSurfaceSlots(
+    surfaceId: string,
+    slots: readonly { readonly id: string; readonly label: string }[],
+  ): void {
+    this.#slotCatalog.update((previous) => {
+      const next = new Map(previous);
+      next.set(
+        surfaceId,
+        slots.map((slot) => ({ id: slot.id, label: slot.label })),
+      );
+      return next;
+    });
+  }
+
+  #forgetSurfaceSlots(surfaceId: string): void {
+    this.#slotCatalog.update((previous) => {
+      const next = new Map(previous);
+      next.delete(surfaceId);
+      return next;
+    });
+  }
+
+  /** Load slot labels for any surfaces not yet in the catalog (location-wide uniqueness). */
+  async #ensureSlotCatalog(): Promise<void> {
+    const known = this.#slotCatalog();
+    const missing = this.surfaces().filter((surface) => !known.has(surface.id));
+    if (missing.length === 0) return;
+    const responses = await Promise.all(
+      missing.map((surface) => this.#api.get(this.locationId(), surface.id)),
+    );
+    this.#slotCatalog.update((previous) => {
+      const next = new Map(previous);
+      for (const response of responses) {
+        const detail = response.placementSurface as PlacementSurfaceDetail;
+        next.set(
+          detail.id,
+          detail.slots.map((slot) => ({ id: slot.id, label: slot.label })),
+        );
+      }
+      return next;
+    });
   }
 
   #bumpActiveSlotCount(delta: number): void {
