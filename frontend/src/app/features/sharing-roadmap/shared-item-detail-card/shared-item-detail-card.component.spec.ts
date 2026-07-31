@@ -22,7 +22,7 @@ const SHARED_ITEM: SharedItem = {
     updatedAt: '2026-01-01T00:00:00Z',
     assignedItemCount: 1,
   },
-  typicalPlacement: { visible: false, value: null },
+  typicalPlacement: { visible: false, value: null, structured: null },
   reservationState: { requestable: true, acceptedRanges: [] },
 };
 

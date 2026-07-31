@@ -10,7 +10,9 @@ import {
   reservationStartTimeError,
   sharedItemAvailabilityLabel,
   typicalPlacementLabel,
+  visibleStructuredPlacement,
 } from '../functions';
+import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapshot-diagram';
 import { MaterialSymbolIconComponent } from '../../../ui/material-symbol-icon/material-symbol-icon.component';
 
 export interface SharedItemReservationRequest {
@@ -21,7 +23,13 @@ export interface SharedItemReservationRequest {
 
 @Component({
   selector: 'app-shared-item-detail-card',
-  imports: [FormField, FormRoot, MaterialSymbolIconComponent, UserAvatar],
+  imports: [
+    FormField,
+    FormRoot,
+    MaterialSymbolIconComponent,
+    PlacementSnapshotDiagram,
+    UserAvatar,
+  ],
   templateUrl: './shared-item-detail-card.component.html',
   styleUrl: './shared-item-detail-card.component.css',
 })
@@ -66,6 +74,8 @@ export class SharedItemDetailCardComponent {
   placementLabel(): string {
     return typicalPlacementLabel(this.item().typicalPlacement);
   }
+
+  placementStructured = () => visibleStructuredPlacement(this.item().typicalPlacement);
 
   availabilityLabel(): string {
     return sharedItemAvailabilityLabel(this.item(), Date.now());

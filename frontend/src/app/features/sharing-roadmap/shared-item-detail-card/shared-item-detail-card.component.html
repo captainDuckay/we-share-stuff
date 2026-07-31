@@ -52,7 +52,12 @@
       </div>
       <div>
         <dt>Typical Placement</dt>
-        <dd>{{ placementLabel() }}</dd>
+        <dd>
+          <p>{{ placementLabel() }}</p>
+          @if (placementStructured(); as structured) {
+            <app-placement-snapshot-diagram [snapshot]="structured" />
+          }
+        </dd>
       </div>
       <div>
         <dt>Availability</dt>

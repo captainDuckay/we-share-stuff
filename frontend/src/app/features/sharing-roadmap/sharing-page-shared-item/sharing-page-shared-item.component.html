@@ -53,7 +53,12 @@
       </div>
       <div>
         <dt class="sharing-page-shared-item__fact-term">Typical Placement</dt>
-        <dd class="sharing-page-shared-item__fact-description">{{ placementLabel() }}</dd>
+        <dd class="sharing-page-shared-item__fact-description">
+          <p>{{ placementLabel() }}</p>
+          @if (placementStructured(); as structured) {
+            <app-placement-snapshot-diagram [snapshot]="structured" />
+          }
+        </dd>
       </div>
     </dl>
     @if (acceptedRanges().length > 0) {

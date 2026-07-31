@@ -12,17 +12,23 @@ from app.models import (
     ItemCategory,
     ItemPhoto,
     ItemSharing,
+    PlacementSlot,
+    PlacementSurface,
     Reservation,
     ReservationChangeProposal,
     SharingGroup,
     SharingGroupMember,
     SharingGroupPhoto,
+    StructuralDrawing,
     TypicalLocation,
     User,
 )
 from app.problems import problem
 from app.schemas import (
     CategoryResponse,
+    FrozenPlacementSlotGeometry,
+    FrozenSketchPoint,
+    FrozenStructuralDrawing,
     ItemPhotoResponse,
     ItemSharingResponse,
     ManagedTypicalLocationResponse,
@@ -35,6 +41,7 @@ from app.schemas import (
     ShareReadiness,
     SharingGroupResponse,
     SharingGroupSummary,
+    StructuredPlacementSnapshot,
     TypicalLocationResponse,
     TypicalPlacementVisibility,
     UserSummary,
@@ -291,11 +298,135 @@ def freeze_typical_placement_snapshot(live_placement: str | None) -> str | None:
     return trimmed or None
 
 
+def _frozen_slot_geometry(slot: PlacementSlot) -> FrozenPlacementSlotGeometry:
+    return FrozenPlacementSlotGeometry(
+        id=slot.id,
+        label=slot.label,
+        x=slot.x,
+        y=slot.y,
+        width=slot.width,
+        height=slot.height,
+    )
+
+
+def _frozen_structural_drawing(
+    drawing: StructuralDrawing,
+) -> FrozenStructuralDrawing:
+    points = None
+    if drawing.points is not None:
+        points = [
+            FrozenSketchPoint(x=point["x"], y=point["y"])
+            if isinstance(point, dict)
+            else FrozenSketchPoint(x=point.x, y=point.y)
+            for point in drawing.points
+        ]
+    return FrozenStructuralDrawing(
+        id=drawing.id,
+        kind=drawing.kind,  # type: ignore[arg-type]
+        x=drawing.x,
+        y=drawing.y,
+        width=drawing.width,
+        height=drawing.height,
+        points=points,
+    )
+
+
+def build_structured_placement_snapshot(
+    surface: PlacementSurface,
+    target_slot: PlacementSlot,
+    note: str | None,
+) -> StructuredPlacementSnapshot:
+    """Freeze parent-Surface-only structure for a Slot-linked Item.
+
+    Includes target Slot geometry, other slots on that Surface (orientation),
+    and Structural Drawings. Excludes co-located Items and other Surfaces.
+    """
+    other_slots = sorted(
+        (
+            slot
+            for slot in surface.slots
+            if slot.id != target_slot.id
+        ),
+        key=lambda slot: (slot.label.lower(), str(slot.id)),
+    )
+    drawings = sorted(
+        surface.structural_drawings,
+        key=lambda drawing: (drawing.created_at, str(drawing.id)),
+    )
+    return StructuredPlacementSnapshot(
+        surface_name=surface.name,
+        slot_label=target_slot.label,
+        note=note,
+        target_slot=_frozen_slot_geometry(target_slot),
+        other_slots=[_frozen_slot_geometry(slot) for slot in other_slots],
+        structural_drawings=[
+            _frozen_structural_drawing(drawing) for drawing in drawings
+        ],
+    )
+
+
+async def freeze_placement_for_accept(
+    db: AsyncSession, item: Item
+) -> tuple[str | None, dict | None]:
+    """Freeze free-text and optional structured placement at accept.
+
+    Returns (free_text_or_note, structured_json_or_none). Structured is only
+    produced when the Item is linked to a Placement Slot.
+    """
+    free_text = freeze_typical_placement_snapshot(item.typical_placement)
+    if item.placement_slot_id is None:
+        return free_text, None
+
+    slot = await db.scalar(
+        select(PlacementSlot)
+        .options(
+            selectinload(PlacementSlot.surface).selectinload(PlacementSurface.slots),
+            selectinload(PlacementSlot.surface).selectinload(
+                PlacementSurface.structural_drawings
+            ),
+        )
+        .where(PlacementSlot.id == item.placement_slot_id)
+    )
+    if slot is None or slot.surface is None:
+        # Link is restricted from dangling deletes; treat as free-text only.
+        return free_text, None
+
+    structured = build_structured_placement_snapshot(slot.surface, slot, free_text)
+    return free_text, structured.model_dump(mode="json", by_alias=False)
+
+
+def structured_snapshot_from_storage(
+    raw: dict | None,
+) -> StructuredPlacementSnapshot | None:
+    if raw is None:
+        return None
+    return StructuredPlacementSnapshot.model_validate(raw)
+
+
+def placement_visibility_from_snapshot(
+    *,
+    visible: bool,
+    free_text: str | None = None,
+    structured_raw: dict | None = None,
+) -> TypicalPlacementVisibility:
+    if not visible:
+        return TypicalPlacementVisibility(
+            visible=False, value=None, structured=None
+        )
+    return TypicalPlacementVisibility(
+        visible=True,
+        value=free_text,
+        structured=structured_snapshot_from_storage(structured_raw),
+    )
+
+
 async def typical_placement_visibility(
     db: AsyncSession, item: Item, viewer_id: UUID
 ) -> TypicalPlacementVisibility:
     if item.owner_id == viewer_id:
-        return TypicalPlacementVisibility(visible=True, value=item.typical_placement)
+        return TypicalPlacementVisibility(
+            visible=True, value=item.typical_placement, structured=None
+        )
     accepted = await db.scalar(
         select(Reservation)
         .where(
@@ -310,10 +441,14 @@ async def typical_placement_visibility(
         .limit(1)
     )
     if accepted is not None:
-        return TypicalPlacementVisibility(
-            visible=True, value=accepted.typical_placement_snapshot
+        return placement_visibility_from_snapshot(
+            visible=True,
+            free_text=accepted.typical_placement_snapshot,
+            structured_raw=accepted.typical_placement_structured_snapshot,
         )
-    return TypicalPlacementVisibility(visible=False, value=None)
+    return TypicalPlacementVisibility(
+        visible=False, value=None, structured=None
+    )
 
 
 async def shared_item_response(
@@ -387,14 +522,19 @@ async def reservation_response(
         .limit(1)
     )
     if item.owner_id == viewer_id:
-        placement_visible = True
-        placement_value = item.typical_placement
+        typical_placement = TypicalPlacementVisibility(
+            visible=True, value=item.typical_placement, structured=None
+        )
     elif reservation.requester_id == viewer_id and reservation.status == "accepted":
-        placement_visible = True
-        placement_value = reservation.typical_placement_snapshot
+        typical_placement = placement_visibility_from_snapshot(
+            visible=True,
+            free_text=reservation.typical_placement_snapshot,
+            structured_raw=reservation.typical_placement_structured_snapshot,
+        )
     else:
-        placement_visible = False
-        placement_value = None
+        typical_placement = TypicalPlacementVisibility(
+            visible=False, value=None, structured=None
+        )
     conflicts_with_accepted = (
         reservation.status == "pending"
         and await accepted_reservation_conflicts(
@@ -416,10 +556,7 @@ async def reservation_response(
             if earliest_photo
             else None,
             typical_location=typical_location_response(item.typical_location),
-            typical_placement=TypicalPlacementVisibility(
-                visible=placement_visible,
-                value=placement_value,
-            ),
+            typical_placement=typical_placement,
         ),
         requester=user_summary(requester),
         status=reservation.status,

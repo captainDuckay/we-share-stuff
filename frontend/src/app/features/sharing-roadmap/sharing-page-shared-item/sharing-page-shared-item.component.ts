@@ -3,7 +3,13 @@ import { RouterLink } from '@angular/router';
 import { SharedItem, SharingGroup, SharingGroupSummary } from '../../../core/api/model';
 import { MaterialSymbolIconComponent } from '../../../ui/material-symbol-icon/material-symbol-icon.component';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
-import { DEFAULT_ITEM_ICON, formatUtcRangeInTimezone, typicalPlacementLabel } from '../functions';
+import {
+  DEFAULT_ITEM_ICON,
+  formatUtcRangeInTimezone,
+  typicalPlacementLabel,
+  visibleStructuredPlacement,
+} from '../functions';
+import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapshot-diagram';
 
 export interface SharingPageSharedItemReservationRequest {
   readonly group: SharingGroup;
@@ -14,7 +20,7 @@ export interface SharingPageSharedItemReservationRequest {
 
 @Component({
   selector: 'article[app-sharing-page-shared-item]',
-  imports: [MaterialSymbolIconComponent, RouterLink, UserAvatar],
+  imports: [MaterialSymbolIconComponent, PlacementSnapshotDiagram, RouterLink, UserAvatar],
   templateUrl: './sharing-page-shared-item.component.html',
   styleUrl: './sharing-page-shared-item.component.css',
 })
@@ -36,6 +42,8 @@ export class SharingPageSharedItemComponent {
   placementLabel(): string {
     return typicalPlacementLabel(this.item().typicalPlacement);
   }
+
+  placementStructured = () => visibleStructuredPlacement(this.item().typicalPlacement);
 
   isOwnItem(): boolean {
     return this.item().owner.id === this.currentUserId();

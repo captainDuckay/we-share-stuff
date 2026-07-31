@@ -19,6 +19,7 @@ import {
   SharingPageSharedItemComponent,
   SharingPageSharedItemReservationRequest,
 } from '../sharing-page-shared-item/sharing-page-shared-item.component';
+import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapshot-diagram';
 import {
   fieldError,
   formatLocationLocalRange,
@@ -31,12 +32,14 @@ import {
   normalizeReservationRequest,
   remainingMemberCount,
   typicalPlacementLabel,
+  visibleStructuredPlacement,
 } from '../functions';
 
 @Component({
   selector: 'app-sharing-page',
   imports: [
     PageLayout,
+    PlacementSnapshotDiagram,
     ReactiveFormsModule,
     RouterLink,
     SharingPageSharedItemComponent,
@@ -146,6 +149,7 @@ export class SharingPageComponent {
   }
 
   placementLabel = typicalPlacementLabel;
+  placementStructured = visibleStructuredPlacement;
   remainingMemberCount = remainingMemberCount;
 
   visibleMembers(group: SharingGroup): readonly SharingGroupMember[] {

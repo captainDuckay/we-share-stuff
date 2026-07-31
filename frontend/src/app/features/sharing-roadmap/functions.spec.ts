@@ -23,6 +23,7 @@ import {
   reservationStartTimeError,
   shareReadinessLabel,
   sharingGroupPhotoInputError,
+  structuredPlacementTextPath,
   typicalPlacementLabel,
 } from './functions';
 
@@ -132,7 +133,7 @@ describe('Shared Item discovery helpers', () => {
       updatedAt: '2026-01-01T00:00:00Z',
       assignedItemCount: 1,
     },
-    typicalPlacement: { visible: false, value: null },
+    typicalPlacement: { visible: false, value: null, structured: null },
     reservationState: { requestable: true, acceptedRanges: [] },
   };
 
@@ -182,7 +183,7 @@ describe('Category helpers', () => {
         updatedAt: '2026-01-01T00:00:00Z',
         assignedItemCount: 1,
       },
-      typicalPlacement: { visible: false, value: null },
+      typicalPlacement: { visible: false, value: null, structured: null },
       reservationState: { requestable: true, acceptedRanges: [] },
     };
     expect(compactCategoryLabels(item.categories)).toEqual(['Camping', '+1']);
@@ -220,14 +221,64 @@ describe('Reservation display helpers', () => {
   });
 
   it('hides Typical Placement before acceptance and reveals the no-placement state after acceptance', () => {
-    const hidden: TypicalPlacementVisibility = { visible: false, value: null };
-    const visibleEmpty: TypicalPlacementVisibility = { visible: true, value: null };
-    const visible: TypicalPlacementVisibility = { visible: true, value: 'Blue bin' };
+    const hidden: TypicalPlacementVisibility = {
+      visible: false,
+      value: null,
+      structured: null,
+    };
+    const visibleEmpty: TypicalPlacementVisibility = {
+      visible: true,
+      value: null,
+      structured: null,
+    };
+    const visible: TypicalPlacementVisibility = {
+      visible: true,
+      value: 'Blue bin',
+      structured: null,
+    };
     expect(typicalPlacementLabel(hidden)).toBe(
       'Typical Placement is hidden until your Reservation is accepted.',
     );
     expect(typicalPlacementLabel(visibleEmpty)).toBe('No Typical Placement has been noted.');
     expect(typicalPlacementLabel(visible)).toBe('Typical Placement: Blue bin');
+  });
+
+  it('formats structured text path as Surface → Slot with optional note', () => {
+    expect(
+      structuredPlacementTextPath({
+        surfaceName: 'Garage wall',
+        slotLabel: 'Shelf A',
+        note: null,
+      }),
+    ).toBe('Garage wall → Shelf A');
+    expect(
+      structuredPlacementTextPath({
+        surfaceName: 'Garage wall',
+        slotLabel: 'Shelf A',
+        note: 'behind paint',
+      }),
+    ).toBe('Garage wall → Shelf A (behind paint)');
+    expect(
+      typicalPlacementLabel({
+        visible: true,
+        value: 'behind paint',
+        structured: {
+          surfaceName: 'Garage wall',
+          slotLabel: 'Shelf A',
+          note: 'behind paint',
+          targetSlot: {
+            id: 's1',
+            label: 'Shelf A',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 80,
+          },
+          otherSlots: [],
+          structuralDrawings: [],
+        },
+      }),
+    ).toBe('Typical Placement: Garage wall → Shelf A (behind paint)');
   });
 });
 

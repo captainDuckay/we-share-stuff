@@ -31,7 +31,7 @@ const SHARED_ITEM: SharedItem = {
     updatedAt: '2026-01-01T00:00:00Z',
     assignedItemCount: 1,
   },
-  typicalPlacement: { visible: false, value: null },
+  typicalPlacement: { visible: false, value: null, structured: null },
   reservationState: { requestable: false, acceptedRanges: [] },
 };
 const PHOTO: ItemPhoto = {
@@ -50,7 +50,11 @@ describe('owned Shared Item view', () => {
     expect(view.name).toBe('Updated Tent');
     expect(view.visibleThrough).toEqual(SHARED_ITEM.visibleThrough);
     expect(view.typicalLocation).toEqual(SHARED_ITEM.typicalLocation);
-    expect(view.typicalPlacement).toEqual({ visible: true, value: 'Shelf A' });
+    expect(view.typicalPlacement).toEqual({
+      visible: true,
+      value: 'Shelf A',
+      structured: null,
+    });
     expect(view.itemPhotos).toEqual([PHOTO]);
   });
 
@@ -73,6 +77,7 @@ describe('owned Shared Item view', () => {
     expect(view.typicalPlacement).toEqual({
       visible: true,
       value: 'Garage wall → Bin 1 (behind paint)',
+      structured: null,
     });
   });
 });
