@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Item, ItemPhoto, SharedItem } from '../../../core/api/model';
-import { ownedSharedItemView } from './functions';
+import { ownedSharedItemView, typicalPlacementOwnerLabel } from './functions';
 
 const ITEM: Item = {
   id: 'item-1',
@@ -8,6 +8,8 @@ const ITEM: Item = {
   description: 'Updated description',
   typicalLocation: null,
   typicalPlacement: 'Shelf A',
+  placementSlotId: null,
+  placementSlot: null,
   categories: [{ name: 'camping' }],
   photoUrl: null,
   createdAt: '2026-01-01T00:00:00Z',
@@ -50,5 +52,50 @@ describe('owned Shared Item view', () => {
     expect(view.typicalLocation).toEqual(SHARED_ITEM.typicalLocation);
     expect(view.typicalPlacement).toEqual({ visible: true, value: 'Shelf A' });
     expect(view.itemPhotos).toEqual([PHOTO]);
+  });
+
+  it('uses the Placement Slot as the primary address when linked', () => {
+    const view = ownedSharedItemView(
+      {
+        ...ITEM,
+        typicalPlacement: 'behind paint',
+        placementSlotId: 'slot-a',
+        placementSlot: {
+          id: 'slot-a',
+          label: 'Bin 1',
+          surfaceId: 'surface-a',
+          surfaceName: 'Garage wall',
+        },
+      },
+      SHARED_ITEM,
+      [PHOTO],
+    );
+    expect(view.typicalPlacement).toEqual({
+      visible: true,
+      value: 'Garage wall → Bin 1 (behind paint)',
+    });
+  });
+});
+
+describe('typicalPlacementOwnerLabel', () => {
+  it('labels free-text and linked Typical Placement for the owner', () => {
+    expect(typicalPlacementOwnerLabel(null, null)).toBe('Not noted');
+    expect(typicalPlacementOwnerLabel('Blue bin', null)).toBe('Blue bin');
+    expect(
+      typicalPlacementOwnerLabel('behind paint', {
+        id: 'slot-a',
+        label: 'Bin 1',
+        surfaceId: 'surface-a',
+        surfaceName: 'Garage wall',
+      }),
+    ).toBe('Garage wall → Bin 1 (behind paint)');
+    expect(
+      typicalPlacementOwnerLabel(null, {
+        id: 'slot-a',
+        label: 'Bin 1',
+        surfaceId: 'surface-a',
+        surfaceName: 'Garage wall',
+      }),
+    ).toBe('Garage wall → Bin 1');
   });
 });

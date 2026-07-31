@@ -24,12 +24,14 @@ from app.models import (
     ItemCategory,
     ItemPhoto,
     ItemSharing,
+    PlacementSlot,
     TypicalLocation,
 )
 from app.problems import problem
 from app.schemas import (
     ItemCreate,
     ItemEnvelope,
+    ItemPlacementSlotResponse,
     ItemResponse,
     ItemsEnvelope,
     ItemSharingEnvelope,
@@ -40,6 +42,26 @@ from app.schemas import (
 router = APIRouter(prefix="/api/items", tags=["items"])
 AuthenticatedMutation = Annotated[CurrentSession, Depends(require_session_csrf)]
 AppSettings = Annotated[Settings, Depends(get_settings)]
+
+_ITEM_LOAD_OPTIONS = (
+    selectinload(Item.typical_location),
+    selectinload(Item.placement_slot).selectinload(PlacementSlot.surface),
+)
+
+
+def item_placement_slot_response(
+    slot: PlacementSlot | None,
+) -> ItemPlacementSlotResponse | None:
+    if slot is None:
+        return None
+    surface = slot.surface
+    surface_name = surface.name if surface is not None else ""
+    return ItemPlacementSlotResponse(
+        id=slot.id,
+        label=slot.label,
+        surface_id=slot.surface_id,
+        surface_name=surface_name,
+    )
 
 
 async def item_response(db: DatabaseSession, item: Item) -> ItemResponse:
@@ -59,6 +81,8 @@ async def item_response(db: DatabaseSession, item: Item) -> ItemResponse:
             else None
         ),
         typical_placement=item.typical_placement,
+        placement_slot_id=item.placement_slot_id,
+        placement_slot=item_placement_slot_response(item.placement_slot),
         categories=await category_responses(db, item.id),
         photo_url=(
             f"/api/item-photos/{primary_photo.id}/content" if primary_photo else None
@@ -75,7 +99,7 @@ async def item_envelope(db: DatabaseSession, item: Item) -> ItemEnvelope:
 async def owned_item(db: DatabaseSession, item_id: UUID, owner_id: UUID) -> Item:
     item = await db.scalar(
         select(Item)
-        .options(selectinload(Item.typical_location))
+        .options(*_ITEM_LOAD_OPTIONS)
         .where(Item.id == item_id, Item.owner_id == owner_id)
     )
     if item is None:
@@ -99,6 +123,33 @@ async def require_owned_typical_location(
     return typical_location
 
 
+async def require_placement_slot_for_location(
+    db: DatabaseSession,
+    placement_slot_id: UUID,
+    typical_location_id: UUID | None,
+) -> PlacementSlot:
+    if typical_location_id is None:
+        raise problem(
+            400,
+            "placement_slot_requires_typical_location",
+            "Linking a Placement Slot requires a Typical Location",
+        )
+    slot = await db.scalar(
+        select(PlacementSlot)
+        .options(selectinload(PlacementSlot.surface))
+        .where(PlacementSlot.id == placement_slot_id)
+    )
+    if slot is None:
+        raise problem(404, "placement_slot_not_found", "Placement Slot was not found")
+    if slot.typical_location_id != typical_location_id:
+        raise problem(
+            400,
+            "placement_slot_location_mismatch",
+            "Placement Slot must belong to the Item's Typical Location",
+        )
+    return slot
+
+
 @router.get("", response_model=ItemsEnvelope)
 async def list_items(
     db: DatabaseSession,
@@ -107,7 +158,7 @@ async def list_items(
 ) -> ItemsEnvelope:
     query = (
         select(Item)
-        .options(selectinload(Item.typical_location))
+        .options(*_ITEM_LOAD_OPTIONS)
         .where(Item.owner_id == current.user.id)
         .order_by(Item.created_at.desc())
     )
@@ -126,15 +177,23 @@ async def create_item(
         typical_location = await require_owned_typical_location(
             db, payload.typical_location_id, current.user.id
         )
+    placement_slot = None
+    if payload.placement_slot_id is not None:
+        placement_slot = await require_placement_slot_for_location(
+            db, payload.placement_slot_id, payload.typical_location_id
+        )
     item = Item(
         owner_id=current.user.id,
         name=payload.name,
         description=payload.description,
         typical_location_id=payload.typical_location_id,
         typical_placement=payload.typical_placement,
+        placement_slot_id=payload.placement_slot_id,
     )
     if typical_location is not None:
         item.typical_location = typical_location
+    if placement_slot is not None:
+        item.placement_slot = placement_slot
     db.add(item)
     await db.flush()
     for category_name in payload.categories:
@@ -167,6 +226,9 @@ async def update_item(
             {"body": "must include an update"},
         )
     item = await owned_item(db, item_id, current.user.id)
+    previous_location_id = item.typical_location_id
+    location_changed = False
+
     if "typical_location_id" in updates:
         typical_location_id = updates["typical_location_id"]
         if (
@@ -190,6 +252,31 @@ async def update_item(
             item.typical_location = await require_owned_typical_location(
                 db, typical_location_id, current.user.id
             )
+            item.typical_location_id = typical_location_id
+        else:
+            item.typical_location = None
+            item.typical_location_id = None
+        location_changed = typical_location_id != previous_location_id
+        del updates["typical_location_id"]
+
+    # Changing or clearing Typical Location auto-clears the Slot link unless this
+    # request explicitly sets a (possibly new) placement_slot_id. Keep the note.
+    if location_changed and "placement_slot_id" not in updates:
+        item.placement_slot_id = None
+        item.placement_slot = None
+
+    if "placement_slot_id" in updates:
+        placement_slot_id = updates.pop("placement_slot_id")
+        if placement_slot_id is None:
+            item.placement_slot_id = None
+            item.placement_slot = None
+        else:
+            slot = await require_placement_slot_for_location(
+                db, placement_slot_id, item.typical_location_id
+            )
+            item.placement_slot = slot
+            item.placement_slot_id = slot.id
+
     for field, value in updates.items():
         setattr(item, field, value)
     await db.commit()

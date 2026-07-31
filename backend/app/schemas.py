@@ -117,6 +117,9 @@ class ItemCreate(StrictModel):
             validation_alias="typicalPlacement",
         ),
     ] = None
+    placement_slot_id: UUID | None = Field(
+        default=None, validation_alias="placementSlotId"
+    )
     categories: list[Annotated[str, Field(max_length=CATEGORY_MAX_LENGTH)]] = []
 
     @field_validator("name")
@@ -156,6 +159,9 @@ class ItemUpdate(StrictModel):
             validation_alias="typicalPlacement",
         ),
     ] = None
+    placement_slot_id: UUID | None = Field(
+        default=None, validation_alias="placementSlotId"
+    )
 
     @field_validator("name")
     @classmethod
@@ -303,6 +309,15 @@ class CategoryResponse(AliasModel):
     name: str
 
 
+class ItemPlacementSlotResponse(AliasModel):
+    """Owner-facing summary of the Placement Slot linked as Typical Placement."""
+
+    id: UUID
+    label: str
+    surface_id: UUID = Field(serialization_alias="surfaceId")
+    surface_name: str = Field(serialization_alias="surfaceName")
+
+
 class ItemResponse(AliasModel):
     id: UUID
     name: str
@@ -311,6 +326,12 @@ class ItemResponse(AliasModel):
         serialization_alias="typicalLocation"
     )
     typical_placement: str | None = Field(serialization_alias="typicalPlacement")
+    placement_slot_id: UUID | None = Field(
+        default=None, serialization_alias="placementSlotId"
+    )
+    placement_slot: ItemPlacementSlotResponse | None = Field(
+        default=None, serialization_alias="placementSlot"
+    )
     categories: list[CategoryResponse] = []
     photo_url: str | None = Field(default=None, serialization_alias="photoUrl")
     created_at: datetime = Field(serialization_alias="createdAt")
