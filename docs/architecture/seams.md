@@ -141,7 +141,17 @@ After Reservation acceptance, the borrowing User may see the Item's Placement Sl
 - **Free-text-only / empty:** same Typical Placement section as today—show the frozen string, or “No Typical Placement has been noted.”—**without diagram chrome**. Do not invent structure from free text.
 - Privacy and lifecycle of the reveal remain the Accepted Reservation rules above (cancel hides; owner live edits do not rewrite the snapshot).
 
-Hard delete of a Slot or Surface is blocked while any Item still references a Slot on it (reassign first). Rename/move/resize stays live for the owner; accepted borrowers keep their frozen placement snapshot.
+**Delete and reassign lifecycle** (product level; from wayfinder #9):
+
+- **Placement Slot hard-delete** is **blocked** while any Item still links to that Slot. No silent unlink, no bulk detach, no inventing free text from the Slot label.
+- **Placement Surface hard-delete** is **blocked** while any Item links to **any** Slot on that Surface.
+- **Structural Drawings** are always free to hard-delete (never linkable).
+- **Unreferenced** Slots and Surfaces hard-delete freely (optional confirm only).
+- When delete is blocked: show **linked Item count** and a **“View items”** action that opens Inventory filtered to those Items (or that Slot). Owner reassigns or unlinks **one-by-one** via existing Item editor / canvas assign flows. **No bulk reassign wizard** in this commitment.
+- **Live edits always allowed** for the owner, including while Items link and while Accepted Reservations exist: rename Surface or Slot label; move/resize Slot geometry; edit Structural Drawings. Links use stable Slot id. Borrowers keep frozen snapshots.
+- **Re-parent a Placement Slot** between Surfaces under the **same** Typical Location is allowed; stable id and Item links stay; geometry travels as-is (owner repositions if needed). **Not** across Typical Locations.
+- **Accepted Reservations add no extra structure lock.** Snapshots are copies, not FKs that keep live structure alive. Owner may reassign/unlink while accepted; after no live links remain, structure may be deleted even if borrowers still hold snapshots.
+- When a Surface is free to delete, hard-delete **cascades** all child Slots and Structural Drawings in one action. If any Slot is still linked, Surface delete is **fully blocked** (no partial cascade).
 
 Avoid naming these concepts as current location, geo-location, address, warehouse map, or live tracking in domain language.
 
