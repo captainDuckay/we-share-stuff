@@ -75,6 +75,15 @@ describe('placement surface scene helpers', () => {
     expect(nextUniqueLabel(surfaces, 'Slot')).toBe('Slot 2');
   });
 
+  it('bumps default Slot labels using every surface under the location', () => {
+    const surfaces = [
+      { slots: [{ id: '1', label: 'Slot' }] },
+      { slots: [{ id: '2', label: 'Slot 2' }] },
+      { slots: [] as { id: string; label: string }[] },
+    ];
+    expect(nextUniqueLabel(surfaces, 'Slot')).toBe('Slot 3');
+  });
+
   it('rounds millimetres to whole units without float debris', () => {
     expect(roundMm(-12.489883422851562)).toBe(-12);
     expect(roundMm(106.73976135253906)).toBe(107);
