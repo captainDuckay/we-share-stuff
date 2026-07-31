@@ -98,3 +98,43 @@ def test_item_validation_is_problem_json(
     )
     assert visual_icon.status_code == 400
     assert visual_icon.json()["code"] == "validation_failed"
+
+
+def test_item_patch_accepts_and_replaces_categories(
+    client: TestClient, csrf_headers: dict[str, str]
+) -> None:
+    """Owned-item editor always PATCHes categories with the rest of the form."""
+    headers = authenticated_client(client, csrf_headers)
+    created = client.post(
+        "/api/items",
+        headers=headers,
+        json={"name": "Cordless drill", "categories": ["garden", "power tool"]},
+    )
+    assert created.status_code == 201
+    item_id = created.json()["item"]["id"]
+    assert {c["name"] for c in created.json()["item"]["categories"]} == {
+        "garden",
+        "power tool",
+    }
+
+    updated = client.patch(
+        f"/api/items/{item_id}",
+        headers=headers,
+        json={
+            "name": "Cordless drill",
+            "description": "test",
+            "typicalPlacement": None,
+            "categories": ["power tool"],
+        },
+    )
+    assert updated.status_code == 200, updated.json()
+    names = [c["name"] for c in updated.json()["item"]["categories"]]
+    assert names == ["power tool"]
+
+    cleared = client.patch(
+        f"/api/items/{item_id}",
+        headers=headers,
+        json={"categories": []},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["item"]["categories"] == []
