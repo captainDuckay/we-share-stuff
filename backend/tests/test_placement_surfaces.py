@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
+
+import app.routers.placement_surfaces as surfaces_router
+from app.schemas import POLYLINE_POINTS_MAX
 
 PASSWORD = "a secure password"
 ORIGIN = "http://localhost:4200"
@@ -138,11 +142,25 @@ def test_non_owner_cannot_access_placement_surfaces(client: TestClient) -> None:
         json={"name": "Shed"},
     )
     surface_id = created.json()["placementSurface"]["id"]
+    slot = client.post(
+        slots_url(location["id"], surface_id),
+        headers=owner_headers,
+        json={"label": "Bin", "x": 0, "y": 0, "width": 10, "height": 10},
+    ).json()["placementSlot"]
+    drawing = client.post(
+        drawings_url(location["id"], surface_id),
+        headers=owner_headers,
+        json={"kind": "rect", "x": 0, "y": 0, "width": 20, "height": 20},
+    ).json()["structuralDrawing"]
 
     other_headers = use_session(client, other)
     listed = client.get(surfaces_url(location["id"]), headers=other_headers)
     assert listed.status_code == 404
     assert listed.json()["code"] == "typical_location_not_found"
+
+    detail = client.get(surface_url(location["id"], surface_id), headers=other_headers)
+    assert detail.status_code == 404
+    assert detail.json()["code"] == "typical_location_not_found"
 
     created_by_other = client.post(
         surfaces_url(location["id"]),
@@ -162,6 +180,44 @@ def test_non_owner_cannot_access_placement_surfaces(client: TestClient) -> None:
         surface_url(location["id"], surface_id), headers=other_headers
     )
     assert deleted.status_code == 404
+
+    slot_create = client.post(
+        slots_url(location["id"], surface_id),
+        headers=other_headers,
+        json={"label": "Stolen", "x": 1, "y": 1, "width": 5, "height": 5},
+    )
+    assert slot_create.status_code == 404
+
+    slot_patch = client.patch(
+        slot_url(location["id"], surface_id, slot["id"]),
+        headers=other_headers,
+        json={"label": "Hijacked"},
+    )
+    assert slot_patch.status_code == 404
+
+    slot_delete = client.delete(
+        slot_url(location["id"], surface_id, slot["id"]), headers=other_headers
+    )
+    assert slot_delete.status_code == 404
+
+    drawing_create = client.post(
+        drawings_url(location["id"], surface_id),
+        headers=other_headers,
+        json={"kind": "rect", "x": 0, "y": 0, "width": 5, "height": 5},
+    )
+    assert drawing_create.status_code == 404
+
+    drawing_patch = client.patch(
+        drawing_url(location["id"], surface_id, drawing["id"]),
+        headers=other_headers,
+        json={"x": 99},
+    )
+    assert drawing_patch.status_code == 404
+
+    drawing_delete = client.delete(
+        drawing_url(location["id"], surface_id, drawing["id"]), headers=other_headers
+    )
+    assert drawing_delete.status_code == 404
 
 
 def test_slot_crud_geometry_and_stable_id(client: TestClient) -> None:
@@ -434,3 +490,143 @@ def test_multiple_surfaces_without_item_links(client: TestClient) -> None:
         assert response.status_code == 201
     listed = client.get(surfaces_url(location["id"]), headers=headers)
     assert len(listed.json()["placementSurfaces"]) == 3
+
+
+def test_geometry_rejects_non_finite_and_oversized_polylines(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "geom-limits@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+
+    non_finite_slot = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={
+            "label": "Bad",
+            "x": "NaN",
+            "y": 0,
+            "width": 10,
+            "height": 10,
+        },
+    )
+    assert non_finite_slot.status_code == 400
+    assert non_finite_slot.json()["code"] == "validation_failed"
+
+    infinite_width = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={
+            "label": "Infinite",
+            "x": 0,
+            "y": 0,
+            "width": "Infinity",
+            "height": 10,
+        },
+    )
+    assert infinite_width.status_code == 400
+    assert infinite_width.json()["code"] == "validation_failed"
+
+    too_many_points = [
+        {"x": float(index), "y": 0.0} for index in range(POLYLINE_POINTS_MAX + 1)
+    ]
+    oversized = client.post(
+        drawings_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"kind": "polyline", "points": too_many_points},
+    )
+    assert oversized.status_code == 400
+    assert oversized.json()["code"] == "validation_failed"
+
+    at_limit = [
+        {"x": float(index), "y": 0.0} for index in range(POLYLINE_POINTS_MAX)
+    ]
+    ok_polyline = client.post(
+        drawings_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"kind": "polyline", "points": at_limit},
+    )
+    assert ok_polyline.status_code == 201
+    assert len(ok_polyline.json()["structuralDrawing"]["points"]) == POLYLINE_POINTS_MAX
+
+    non_finite_point = client.post(
+        drawings_url(location["id"], surface["id"]),
+        headers=headers,
+        json={
+            "kind": "polyline",
+            "points": [{"x": 0, "y": 0}, {"x": "NaN", "y": 1}],
+        },
+    )
+    assert non_finite_point.status_code == 400
+    assert non_finite_point.json()["code"] == "validation_failed"
+
+
+def test_placement_collection_quotas(
+    client: TestClient, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setattr(surfaces_router, "MAX_PLACEMENT_SURFACES_PER_LOCATION", 2)
+    monkeypatch.setattr(surfaces_router, "MAX_PLACEMENT_SLOTS_PER_LOCATION", 2)
+    monkeypatch.setattr(surfaces_router, "MAX_STRUCTURAL_DRAWINGS_PER_SURFACE", 2)
+
+    owner = register_user(client, "quota-owner@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+
+    first = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "One"}
+    )
+    second = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Two"}
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+    surface_id = first.json()["placementSurface"]["id"]
+
+    third_surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Three"}
+    )
+    assert third_surface.status_code == 409
+    assert third_surface.json()["code"] == "placement_surface_limit_exceeded"
+
+    slot_a = client.post(
+        slots_url(location["id"], surface_id),
+        headers=headers,
+        json={"label": "A", "x": 0, "y": 0, "width": 10, "height": 10},
+    )
+    slot_b = client.post(
+        slots_url(location["id"], surface_id),
+        headers=headers,
+        json={"label": "B", "x": 20, "y": 0, "width": 10, "height": 10},
+    )
+    assert slot_a.status_code == 201
+    assert slot_b.status_code == 201
+    slot_c = client.post(
+        slots_url(location["id"], surface_id),
+        headers=headers,
+        json={"label": "C", "x": 40, "y": 0, "width": 10, "height": 10},
+    )
+    assert slot_c.status_code == 409
+    assert slot_c.json()["code"] == "placement_slot_limit_exceeded"
+
+    drawing_a = client.post(
+        drawings_url(location["id"], surface_id),
+        headers=headers,
+        json={"kind": "rect", "x": 0, "y": 0, "width": 5, "height": 5},
+    )
+    drawing_b = client.post(
+        drawings_url(location["id"], surface_id),
+        headers=headers,
+        json={"kind": "rect", "x": 10, "y": 0, "width": 5, "height": 5},
+    )
+    assert drawing_a.status_code == 201
+    assert drawing_b.status_code == 201
+    drawing_c = client.post(
+        drawings_url(location["id"], surface_id),
+        headers=headers,
+        json={"kind": "rect", "x": 20, "y": 0, "width": 5, "height": 5},
+    )
+    assert drawing_c.status_code == 409
+    assert drawing_c.json()["code"] == "structural_drawing_limit_exceeded"

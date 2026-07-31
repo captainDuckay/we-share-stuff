@@ -14,6 +14,11 @@ from app.models import (
 )
 from app.problems import problem
 from app.schemas import (
+    MAX_PLACEMENT_SLOTS_PER_LOCATION,
+    MAX_PLACEMENT_SURFACES_PER_LOCATION,
+    MAX_STRUCTURAL_DRAWINGS_PER_SURFACE,
+    POLYLINE_POINTS_MAX,
+    POLYLINE_POINTS_MIN,
     PlacementSlotEnvelope,
     PlacementSlotInput,
     PlacementSlotPatch,
@@ -149,6 +154,52 @@ async def require_unique_slot_label(
         )
 
 
+async def require_surface_capacity(
+    db: DatabaseSession, typical_location_id: UUID
+) -> None:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(PlacementSurface)
+        .where(PlacementSurface.typical_location_id == typical_location_id)
+    )
+    if count is not None and count >= MAX_PLACEMENT_SURFACES_PER_LOCATION:
+        raise problem(
+            409,
+            "placement_surface_limit_exceeded",
+            "Typical Location has the maximum number of Placement Surfaces",
+        )
+
+
+async def require_slot_capacity(
+    db: DatabaseSession, typical_location_id: UUID
+) -> None:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(PlacementSlot)
+        .where(PlacementSlot.typical_location_id == typical_location_id)
+    )
+    if count is not None and count >= MAX_PLACEMENT_SLOTS_PER_LOCATION:
+        raise problem(
+            409,
+            "placement_slot_limit_exceeded",
+            "Typical Location has the maximum number of Placement Slots",
+        )
+
+
+async def require_drawing_capacity(db: DatabaseSession, surface_id: UUID) -> None:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(StructuralDrawing)
+        .where(StructuralDrawing.surface_id == surface_id)
+    )
+    if count is not None and count >= MAX_STRUCTURAL_DRAWINGS_PER_SURFACE:
+        raise problem(
+            409,
+            "structural_drawing_limit_exceeded",
+            "Placement Surface has the maximum number of structural drawings",
+        )
+
+
 @router.get("", response_model=PlacementSurfacesEnvelope)
 async def list_placement_surfaces(
     typical_location_id: UUID,
@@ -183,6 +234,7 @@ async def create_placement_surface(
     current: AuthenticatedMutation,
 ) -> PlacementSurfaceSummaryEnvelope:
     await owned_typical_location(db, typical_location_id, current.user.id)
+    await require_surface_capacity(db, typical_location_id)
     surface = PlacementSurface(
         typical_location_id=typical_location_id,
         name=payload.name,
@@ -261,6 +313,7 @@ async def create_placement_slot(
     surface = await owned_surface(
         db, typical_location_id, surface_id, current.user.id
     )
+    await require_slot_capacity(db, typical_location_id)
     await require_unique_slot_label(db, typical_location_id, payload.label)
     slot = PlacementSlot(
         surface_id=surface.id,
@@ -356,6 +409,7 @@ async def create_structural_drawing(
     surface = await owned_surface(
         db, typical_location_id, surface_id, current.user.id
     )
+    await require_drawing_capacity(db, surface.id)
     points = (
         [{"x": point.x, "y": point.y} for point in payload.points]
         if payload.points is not None
@@ -435,12 +489,21 @@ async def update_structural_drawing(
             )
         if "points" in updates:
             points_value = updates["points"]
-            if points_value is None or len(points_value) < 2:
+            if (
+                points_value is None
+                or len(points_value) < POLYLINE_POINTS_MIN
+                or len(points_value) > POLYLINE_POINTS_MAX
+            ):
                 raise problem(
                     400,
                     "validation_failed",
                     "Validation failed",
-                    {"points": "must include at least 2 points"},
+                    {
+                        "points": (
+                            f"must include between {POLYLINE_POINTS_MIN} and "
+                            f"{POLYLINE_POINTS_MAX} points"
+                        )
+                    },
                 )
             updates["points"] = [
                 {"x": point["x"], "y": point["y"]} for point in points_value
