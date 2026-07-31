@@ -280,20 +280,39 @@ async def accepted_ranges(db: AsyncSession, item_id: UUID) -> list[ReservationRa
     ]
 
 
+def freeze_typical_placement_snapshot(live_placement: str | None) -> str | None:
+    """Capture free-text Typical Placement for an Accepted Reservation.
+
+    Trims and treats blank as empty (None). Does not invent structure.
+    """
+    if live_placement is None:
+        return None
+    trimmed = live_placement.strip()
+    return trimmed or None
+
+
 async def typical_placement_visibility(
     db: AsyncSession, item: Item, viewer_id: UUID
 ) -> TypicalPlacementVisibility:
     if item.owner_id == viewer_id:
         return TypicalPlacementVisibility(visible=True, value=item.typical_placement)
     accepted = await db.scalar(
-        select(Reservation.id).where(
+        select(Reservation)
+        .where(
             Reservation.item_id == item.id,
             Reservation.requester_id == viewer_id,
             Reservation.status == "accepted",
         )
+        .order_by(
+            Reservation.decided_at.desc().nullslast(),
+            Reservation.created_at.desc(),
+        )
+        .limit(1)
     )
     if accepted is not None:
-        return TypicalPlacementVisibility(visible=True, value=item.typical_placement)
+        return TypicalPlacementVisibility(
+            visible=True, value=accepted.typical_placement_snapshot
+        )
     return TypicalPlacementVisibility(visible=False, value=None)
 
 
@@ -367,9 +386,15 @@ async def reservation_response(
         .order_by(ItemPhoto.created_at, ItemPhoto.id)
         .limit(1)
     )
-    placement_visible = item.owner_id == viewer_id or (
-        reservation.requester_id == viewer_id and reservation.status == "accepted"
-    )
+    if item.owner_id == viewer_id:
+        placement_visible = True
+        placement_value = item.typical_placement
+    elif reservation.requester_id == viewer_id and reservation.status == "accepted":
+        placement_visible = True
+        placement_value = reservation.typical_placement_snapshot
+    else:
+        placement_visible = False
+        placement_value = None
     conflicts_with_accepted = (
         reservation.status == "pending"
         and await accepted_reservation_conflicts(
@@ -393,7 +418,7 @@ async def reservation_response(
             typical_location=typical_location_response(item.typical_location),
             typical_placement=TypicalPlacementVisibility(
                 visible=placement_visible,
-                value=item.typical_placement if placement_visible else None,
+                value=placement_value,
             ),
         ),
         requester=user_summary(requester),
