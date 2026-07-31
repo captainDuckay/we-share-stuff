@@ -13,6 +13,7 @@ from app.domain import (
     accepted_reservation_conflicts,
     as_utc,
     change_proposal_response,
+    freeze_typical_placement_snapshot,
     require_group_member,
     reservation_response,
 )
@@ -343,6 +344,14 @@ async def accept_reservation(
             "reservation_conflict",
             "Reservation conflicts with an accepted Reservation",
         )
+    item = await db.get(Item, reservation.item_id)
+    if item is None:
+        raise problem(404, "reservation_not_found", "Reservation was not found")
+    # Freeze free-text Typical Placement for the life of this Accepted Reservation.
+    # Do not clear on cancel; hide by status. Change-proposal approve must not re-snapshot.
+    reservation.typical_placement_snapshot = freeze_typical_placement_snapshot(
+        item.typical_placement
+    )
     reservation.status = "accepted"
     reservation.decided_at = now_utc()
     await db.commit()

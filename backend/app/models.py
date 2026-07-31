@@ -334,6 +334,11 @@ class Reservation(Base):
             name="reservations_status_valid",
         ),
         CheckConstraint("end_at > start_at", name="reservations_end_after_start"),
+        CheckConstraint(
+            "typical_placement_snapshot IS NULL"
+            " OR length(typical_placement_snapshot) <= 2000",
+            name="reservations_typical_placement_snapshot_max_length",
+        ),
         Index(
             "reservations_item_status_time_index",
             "item_id",
@@ -358,6 +363,9 @@ class Reservation(Base):
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     timezone: Mapped[str] = mapped_column(String(100))
+    typical_placement_snapshot: Mapped[str | None] = mapped_column(
+        String(2000), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
