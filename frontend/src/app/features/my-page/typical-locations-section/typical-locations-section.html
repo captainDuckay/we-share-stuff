@@ -61,6 +61,10 @@
             </p>
           </div>
           <div class="locations-section__actions">
+            <a
+              [routerLink]="['/my-page/typical-locations', location.id, 'surfaces']"
+              >Manage surfaces…</a
+            >
             @if (location.assignedItemCount > 0) {
               <a routerLink="/my-stuff" [queryParams]="{ typicalLocationId: location.id }"
                 >View items</a

@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON
 
 
 class Base(DeclarativeBase):
@@ -122,6 +124,126 @@ class TypicalLocation(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PlacementSurface(Base):
+    __tablename__ = "placement_surfaces"
+    __table_args__ = (
+        CheckConstraint(
+            "length(name) >= 1", name="placement_surfaces_name_not_blank"
+        ),
+        CheckConstraint(
+            "length(name) <= 200", name="placement_surfaces_name_max_length"
+        ),
+        Index(
+            "placement_surfaces_location_created_at_index",
+            "typical_location_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    typical_location_id: Mapped[UUID] = mapped_column(
+        ForeignKey("typical_locations.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    slots: Mapped[list[PlacementSlot]] = relationship(
+        back_populates="surface",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    structural_drawings: Mapped[list[StructuralDrawing]] = relationship(
+        back_populates="surface",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class PlacementSlot(Base):
+    __tablename__ = "placement_slots"
+    __table_args__ = (
+        CheckConstraint(
+            "length(label) >= 1", name="placement_slots_label_not_blank"
+        ),
+        CheckConstraint(
+            "length(label) <= 200", name="placement_slots_label_max_length"
+        ),
+        CheckConstraint("width > 0", name="placement_slots_width_positive"),
+        CheckConstraint("height > 0", name="placement_slots_height_positive"),
+        # Case-insensitive uniqueness is enforced in the app (placement_slot_label_conflict).
+        Index("placement_slots_location_label_index", "typical_location_id", "label"),
+        Index("placement_slots_surface_index", "surface_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    surface_id: Mapped[UUID] = mapped_column(
+        ForeignKey("placement_surfaces.id", ondelete="CASCADE"), index=True
+    )
+    typical_location_id: Mapped[UUID] = mapped_column(
+        ForeignKey("typical_locations.id", ondelete="CASCADE"), index=True
+    )
+    label: Mapped[str] = mapped_column(String(200))
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    width: Mapped[float] = mapped_column(Float)
+    height: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    surface: Mapped[PlacementSurface] = relationship(back_populates="slots")
+
+
+class StructuralDrawing(Base):
+    __tablename__ = "structural_drawings"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('rect', 'polyline')",
+            name="structural_drawings_kind_valid",
+        ),
+        # Kind/geometry pairing is enforced in the API layer (JSON null vs SQL NULL
+        # differs across SQLite/Postgres for the points column).
+        CheckConstraint(
+            "width IS NULL OR width > 0",
+            name="structural_drawings_width_positive",
+        ),
+        CheckConstraint(
+            "height IS NULL OR height > 0",
+            name="structural_drawings_height_positive",
+        ),
+        Index("structural_drawings_surface_index", "surface_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    surface_id: Mapped[UUID] = mapped_column(
+        ForeignKey("placement_surfaces.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height: Mapped[float | None] = mapped_column(Float, nullable=True)
+    points: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    surface: Mapped[PlacementSurface] = relationship(
+        back_populates="structural_drawings"
     )
 
 

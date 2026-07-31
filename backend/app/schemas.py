@@ -3,7 +3,14 @@ from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 NAME_MAX_LENGTH = 200
 DESCRIPTION_MAX_LENGTH = 2_000
@@ -521,4 +528,194 @@ class ReservationChangeProposalEnvelope(AliasModel):
 class ReservationChangeProposalsEnvelope(AliasModel):
     change_proposals: list[ReservationChangeProposalResponse] = Field(
         serialization_alias="changeProposals"
+    )
+
+
+SLOT_LABEL_MAX_LENGTH = NAME_MAX_LENGTH
+STRUCTURAL_DRAWING_KINDS = frozenset({"rect", "polyline"})
+
+
+class PlacementSurfaceInput(StrictModel):
+    name: Annotated[str, Field(max_length=NAME_MAX_LENGTH)]
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return normalized_name(value)
+
+
+class PlacementSurfacePatch(StrictModel):
+    name: Annotated[str | None, Field(default=None, max_length=NAME_MAX_LENGTH)] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        return normalized_name(value) if value is not None else None
+
+
+class PlacementSlotInput(StrictModel):
+    label: Annotated[str, Field(max_length=SLOT_LABEL_MAX_LENGTH)]
+    x: float
+    y: float
+    width: Annotated[float, Field(gt=0)]
+    height: Annotated[float, Field(gt=0)]
+
+    @field_validator("label")
+    @classmethod
+    def validate_label(cls, value: str) -> str:
+        return normalized_name(value)
+
+
+class PlacementSlotPatch(StrictModel):
+    label: Annotated[
+        str | None, Field(default=None, max_length=SLOT_LABEL_MAX_LENGTH)
+    ] = None
+    x: float | None = None
+    y: float | None = None
+    width: Annotated[float | None, Field(default=None, gt=0)] = None
+    height: Annotated[float | None, Field(default=None, gt=0)] = None
+
+    @field_validator("label")
+    @classmethod
+    def validate_label(cls, value: str | None) -> str | None:
+        return normalized_name(value) if value is not None else None
+
+
+class PointInput(StrictModel):
+    x: float
+    y: float
+
+
+class StructuralDrawingInput(StrictModel):
+    kind: Literal["rect", "polyline"]
+    x: float | None = None
+    y: float | None = None
+    width: Annotated[float | None, Field(default=None, gt=0)] = None
+    height: Annotated[float | None, Field(default=None, gt=0)] = None
+    points: list[PointInput] | None = None
+
+    @field_validator("points")
+    @classmethod
+    def validate_points(
+        cls, value: list[PointInput] | None
+    ) -> list[PointInput] | None:
+        if value is not None and len(value) < 2:
+            raise ValueError("must include at least 2 points")
+        return value
+
+    @model_validator(mode="after")
+    def validate_geometry_for_kind(self) -> "StructuralDrawingInput":
+        if self.kind == "rect":
+            if (
+                self.x is None
+                or self.y is None
+                or self.width is None
+                or self.height is None
+            ):
+                raise ValueError("rect requires x, y, width, and height")
+            if self.points is not None:
+                raise ValueError("rect must not include points")
+        else:
+            if self.points is None:
+                raise ValueError("polyline requires points")
+            if (
+                self.x is not None
+                or self.y is not None
+                or self.width is not None
+                or self.height is not None
+            ):
+                raise ValueError("polyline must not include rect geometry")
+        return self
+
+
+class StructuralDrawingPatch(StrictModel):
+    x: float | None = None
+    y: float | None = None
+    width: Annotated[float | None, Field(default=None, gt=0)] = None
+    height: Annotated[float | None, Field(default=None, gt=0)] = None
+    points: list[PointInput] | None = None
+
+    @field_validator("points")
+    @classmethod
+    def validate_points(
+        cls, value: list[PointInput] | None
+    ) -> list[PointInput] | None:
+        if value is not None and len(value) < 2:
+            raise ValueError("must include at least 2 points")
+        return value
+
+
+class PlacementSlotResponse(AliasModel):
+    id: UUID
+    surface_id: UUID = Field(serialization_alias="surfaceId")
+    label: str
+    x: float
+    y: float
+    width: float
+    height: float
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class PointResponse(AliasModel):
+    x: float
+    y: float
+
+
+class StructuralDrawingResponse(AliasModel):
+    id: UUID
+    surface_id: UUID = Field(serialization_alias="surfaceId")
+    kind: Literal["rect", "polyline"]
+    x: float | None = None
+    y: float | None = None
+    width: float | None = None
+    height: float | None = None
+    points: list[PointResponse] | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class PlacementSurfaceSummaryResponse(AliasModel):
+    id: UUID
+    typical_location_id: UUID = Field(serialization_alias="typicalLocationId")
+    name: str
+    slot_count: int = Field(default=0, serialization_alias="slotCount")
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class PlacementSurfaceDetailResponse(PlacementSurfaceSummaryResponse):
+    slots: list[PlacementSlotResponse] = []
+    structural_drawings: list[StructuralDrawingResponse] = Field(
+        default_factory=list, serialization_alias="structuralDrawings"
+    )
+
+
+class PlacementSurfaceEnvelope(AliasModel):
+    placement_surface: PlacementSurfaceDetailResponse = Field(
+        serialization_alias="placementSurface"
+    )
+
+
+class PlacementSurfaceSummaryEnvelope(AliasModel):
+    placement_surface: PlacementSurfaceSummaryResponse = Field(
+        serialization_alias="placementSurface"
+    )
+
+
+class PlacementSurfacesEnvelope(AliasModel):
+    placement_surfaces: list[PlacementSurfaceSummaryResponse] = Field(
+        serialization_alias="placementSurfaces"
+    )
+
+
+class PlacementSlotEnvelope(AliasModel):
+    placement_slot: PlacementSlotResponse = Field(
+        serialization_alias="placementSlot"
+    )
+
+
+class StructuralDrawingEnvelope(AliasModel):
+    structural_drawing: StructuralDrawingResponse = Field(
+        serialization_alias="structuralDrawing"
     )

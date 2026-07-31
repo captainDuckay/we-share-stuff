@@ -1,0 +1,194 @@
+<app-page-layout
+  pageTitle="Placement Surfaces"
+  [description]="'Sketch slots and structure for ' + locationName() + '.'"
+  backLink="/my-page"
+  backLabel="Back to My page"
+>
+  @if (loading()) {
+    <p role="status">Loading Placement Surfaces…</p>
+  } @else if (error()) {
+    <p class="ps-page__error" role="alert">{{ error() }}</p>
+    <a routerLink="/my-page">Return to My page</a>
+  } @else {
+    <div class="ps-page">
+      <div class="ps-page__tabs" role="tablist" aria-label="Placement Surfaces">
+        @for (surface of surfaces(); track surface.id) {
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="activeSurfaceId() === surface.id"
+            [class.ps-page__tab--active]="activeSurfaceId() === surface.id"
+            [disabled]="busy()"
+            (click)="selectSurface(surface.id)"
+          >
+            {{ surface.name }}
+            <span class="ps-page__tab-meta"
+              >{{ slotCountFor(surface.id) }}
+              {{ slotCountFor(surface.id) === 1 ? 'slot' : 'slots' }}</span
+            >
+          </button>
+        }
+        <button type="button" class="ps-page__add" [disabled]="busy()" (click)="addSurface()">
+          + Surface
+        </button>
+      </div>
+
+      @if (!detail()) {
+        <p>
+          No Placement Surfaces yet. Add a surface to sketch Placement Slots and structural
+          drawings on an infinite millimetre plane.
+        </p>
+      } @else if (sceneSurface(); as scene) {
+        <div class="ps-page__workspace">
+          <div class="ps-page__sketch" aria-label="Sketch window">
+            <div class="ps-page__tool-rail" role="toolbar" aria-label="Sketch tools">
+              @for (toolDef of tools; track toolDef.id) {
+                <button
+                  type="button"
+                  class="ps-page__tool"
+                  [class.ps-page__tool--active]="tool() === toolDef.id"
+                  [attr.title]="toolDef.hint"
+                  [attr.aria-label]="toolDef.label"
+                  [attr.aria-pressed]="tool() === toolDef.id"
+                  (click)="setTool(toolDef.id)"
+                >
+                  <app-material-symbol-icon [name]="toolDef.icon" aria-hidden="true" />
+                </button>
+              }
+              <div class="ps-page__tool-rail-sep" aria-hidden="true"></div>
+              <button
+                type="button"
+                class="ps-page__tool"
+                title="Fit content in view"
+                aria-label="Fit content"
+                (click)="fit()"
+              >
+                <app-material-symbol-icon name="fit-screen" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                class="ps-page__tool ps-page__tool--danger"
+                title="Delete selection"
+                aria-label="Delete selection"
+                [disabled]="!selection() || busy()"
+                (click)="deleteSelection()"
+              >
+                <app-material-symbol-icon name="delete" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div class="ps-page__canvas-wrap">
+              <app-surface-canvas
+                [surface]="scene"
+                [tool]="tool()"
+                [selection]="selection()"
+                (selectShape)="onSelectShape($event)"
+                (placeAt)="onPlaceAt($event)"
+                (moveDelta)="onMoveDelta($event)"
+                (resizeTo)="onResizeTo($event)"
+                (interactionEnd)="onInteractionEnd()"
+              />
+            </div>
+          </div>
+
+          <aside class="ps-page__aside" aria-label="Selection properties">
+            <h3>Surface</h3>
+            <label>
+              Name
+              <input
+                [ngModel]="surfaceNameDraft"
+                (ngModelChange)="surfaceNameDraft = $event"
+                (change)="applySurfaceName()"
+                [disabled]="busy()"
+              />
+            </label>
+            <button
+              type="button"
+              class="ps-page__danger-btn"
+              [disabled]="busy()"
+              (click)="deleteSurface()"
+            >
+              Delete surface
+            </button>
+            <p class="ps-page__note">
+              No canvas width/height to set. Dashed outline is the
+              <strong>derived</strong> extent of structure + slots (mm).
+            </p>
+
+            @if (selectedSlot(); as slot) {
+              <h3>Slot</h3>
+              <label>
+                Label
+                <input
+                  [(ngModel)]="slotLabelDraft"
+                  (change)="applySlotLabel()"
+                  [disabled]="busy()"
+                />
+              </label>
+              <fieldset>
+                <legend>Geometry (mm)</legend>
+                <div class="ps-page__row">
+                  <label>
+                    X
+                    <input
+                      [(ngModel)]="slotX"
+                      inputmode="decimal"
+                      (change)="applySlotGeometryFields()"
+                      [disabled]="busy()"
+                    />
+                  </label>
+                  <label>
+                    Y
+                    <input
+                      [(ngModel)]="slotY"
+                      inputmode="decimal"
+                      (change)="applySlotGeometryFields()"
+                      [disabled]="busy()"
+                    />
+                  </label>
+                </div>
+                <div class="ps-page__row">
+                  <label>
+                    W
+                    <input
+                      [(ngModel)]="slotW"
+                      inputmode="decimal"
+                      (change)="applySlotGeometryFields()"
+                      [disabled]="busy()"
+                    />
+                  </label>
+                  <label>
+                    H
+                    <input
+                      [(ngModel)]="slotH"
+                      inputmode="decimal"
+                      (change)="applySlotGeometryFields()"
+                      [disabled]="busy()"
+                    />
+                  </label>
+                </div>
+              </fieldset>
+              <p class="ps-page__note">
+                Width/height fields are the same values as the canvas rectangle. Stable id:
+                <code>{{ slot.id }}</code>
+              </p>
+            } @else if (selectedStructure()) {
+              <h3>Structural drawing</h3>
+              <p class="ps-page__note">Visual only — no label, never linkable.</p>
+            } @else {
+              <p class="ps-page__note">
+                Select a slot to edit its label and size. Wheel to zoom; pan tool to roam.
+              </p>
+            }
+
+            @if (formError()) {
+              <p class="ps-page__error" role="alert">{{ formError() }}</p>
+            }
+          </aside>
+        </div>
+      }
+    </div>
+  }
+
+  <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
+</app-page-layout>
