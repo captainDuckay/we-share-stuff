@@ -126,12 +126,20 @@ Only the owning User of the Typical Location edits Surfaces, Slots, and Structur
 
 After Reservation acceptance, the borrowing User may see the Item's Placement Slot plus its parent Placement Surface—not the owner's full multi-surface atlas. Unrelated Surfaces and the editor remain private.
 
-**Placement snapshot at acceptance** (product level; presentation of the reveal is a separate decision):
+**Placement snapshot at acceptance** (product level):
 
 - **Freeze at accept** for the life of that Accepted Reservation; owner inventory stays live.
 - **Structured** (Slot-linked): Surface name, Slot label, optional Item free-text note, Slot geometry (mm rect), Structural Drawings on that parent Surface only; optional preferred dimensions when already present; other Surfaces and co-located Items out. Internal ids may be stored; borrower findability uses frozen labels.
 - **Free-text-only**: freeze that string the same way. **Empty**: freeze empty (do not invent structure).
 - **Lifecycle:** cancel stops reveal; re-accept captures a fresh snapshot; Reservation Change Proposal (date-time only) keeps the existing snapshot; owner mid-accept edits do not rewrite it.
+
+**Borrower reveal presentation** (product level; from wayfinder #6—read-only projection of the frozen snapshot, not the owner editor):
+
+- **Structured diagram:** show the **full parent Placement Surface** schematic with the **linked Slot strongly highlighted**. Other Slots on that Surface appear as **quiet outlines with labels** (orientation only). **Structural Drawings** render **1:1** from the snapshot in structure style; they never look selectable or linkable. **No co-located Items** on the diagram.
+- **Interaction:** **pan and zoom only**—no draw tools, no selecting Slots or structure. **Initial framing fits the entire parent Surface** so orientation comes first; the highlight locates the target Slot.
+- **Required text path** (always present when structured, including for assistive tech): **Surface name → Slot label**, plus the optional Item free-text note when present. The diagram supports that path; it does not replace it. Size-in-text is not required for accessibility.
+- **Free-text-only / empty:** same Typical Placement section as today—show the frozen string, or “No Typical Placement has been noted.”—**without diagram chrome**. Do not invent structure from free text.
+- Privacy and lifecycle of the reveal remain the Accepted Reservation rules above (cancel hides; owner live edits do not rewrite the snapshot).
 
 Hard delete of a Slot or Surface is blocked while any Item still references a Slot on it (reassign first). Rename/move/resize stays live for the owner; accepted borrowers keep their frozen placement snapshot.
 
