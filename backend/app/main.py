@@ -18,6 +18,7 @@ from app.routers import (
     auth,
     item_photos,
     items,
+    placement_surfaces,
     profile,
     reservations,
     sharing_group_photos,
@@ -125,6 +126,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application.include_router(auth.router)
     application.include_router(typical_locations.router)
+    application.include_router(placement_surfaces.router)
     application.include_router(items.router)
     application.include_router(item_photos.router)
     application.include_router(profile.router)

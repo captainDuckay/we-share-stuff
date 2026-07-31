@@ -1,0 +1,101 @@
+:host {
+  display: block;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.surface-canvas-host {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 18rem;
+  color: var(--muted-foreground);
+}
+
+.surface-canvas-host--pan .surface-canvas {
+  cursor: grab;
+}
+
+.surface-canvas {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 18rem;
+  height: 100%;
+  background: light-dark(oklch(97% 0.01 85), oklch(20% 0.02 60));
+  border: none;
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.surface-canvas__grid {
+  pointer-events: none;
+}
+
+.surface-canvas__content-hint {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+  pointer-events: none;
+}
+
+.surface-canvas__struct-rect {
+  fill: light-dark(oklch(92% 0.02 75 / 70%), oklch(30% 0.02 65 / 70%));
+  stroke: var(--muted-foreground);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  cursor: grab;
+}
+
+.surface-canvas__struct-line {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 3;
+  stroke-linecap: round;
+  cursor: grab;
+}
+
+.surface-canvas__slot rect:first-of-type {
+  fill: light-dark(oklch(88% 0.08 55 / 85%), oklch(40% 0.08 55 / 70%));
+  stroke: var(--primary);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.surface-canvas__slot text {
+  fill: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.surface-canvas__selected rect:first-of-type,
+.surface-canvas__struct-rect.surface-canvas__selected,
+.surface-canvas__struct-line.surface-canvas__selected {
+  stroke: var(--focus-ring, var(--primary));
+  stroke-width: 3;
+}
+
+.surface-canvas__handle {
+  fill: var(--primary);
+  stroke: var(--primary-foreground);
+  stroke-width: 1;
+  cursor: nwse-resize;
+}
+
+.surface-canvas__extent {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.35rem;
+  margin: 0;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  background: light-dark(oklch(100% 0 0 / 80%), oklch(15% 0.02 60 / 80%));
+  border-radius: 999px;
+  pointer-events: none;
+  color: var(--muted-foreground);
+}
