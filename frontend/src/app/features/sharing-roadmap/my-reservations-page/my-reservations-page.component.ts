@@ -87,7 +87,7 @@ export class MyReservationsPageComponent {
   }
 
   enterPrototype(): void {
-    this.setPrototypeVariant('B');
+    this.setPrototypeVariant('A');
   }
   async load(): Promise<void> {
     this.loading.set(true);

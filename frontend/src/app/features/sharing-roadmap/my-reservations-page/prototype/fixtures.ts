@@ -3,6 +3,8 @@
  * In-memory only; not production models. Wipe with the branch.
  */
 
+import type { StructuredPlacementSnapshot } from '../../../../core/api/model';
+
 export type PrototypeTab = 'upcoming' | 'pending' | 'past';
 
 export type PrototypeStatus =
@@ -268,6 +270,43 @@ export const placementTextPath = (placement: PrototypePlacement): string | null 
       return placement.note ? `${base} · ${placement.note}` : base;
     }
   }
+};
+
+/** Map fixture structured placement into the production diagram model. */
+export const toStructuredSnapshot = (
+  placement: PrototypePlacement,
+): StructuredPlacementSnapshot | null => {
+  if (placement.kind !== 'structured') return null;
+  return {
+    surfaceName: placement.surfaceName,
+    slotLabel: placement.slotLabel,
+    note: placement.note,
+    targetSlot: {
+      id: 'proto-target',
+      label: placement.slotLabel,
+      x: placement.slot.x,
+      y: placement.slot.y,
+      width: placement.slot.w,
+      height: placement.slot.h,
+    },
+    otherSlots: placement.otherSlots.map((slot, index) => ({
+      id: `proto-other-${index}`,
+      label: slot.label,
+      x: slot.x,
+      y: slot.y,
+      width: slot.w,
+      height: slot.h,
+    })),
+    structuralDrawings: placement.structure.map((block, index) => ({
+      id: `proto-struct-${index}`,
+      kind: 'rect' as const,
+      x: block.x,
+      y: block.y,
+      width: block.w,
+      height: block.h,
+      points: null,
+    })),
+  };
 };
 
 export const countByTab = (

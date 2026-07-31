@@ -19,6 +19,8 @@ import { PrototypeVariantCInbox } from './variant-c-inbox';
  * PROTOTYPE host for My reservations UI variants (#22).
  * Question: what should the overhauled page look and feel like at low fidelity?
  * Three variants via ?variant=A|B|C — fixture data only.
+ *
+ * Preferred (review): A dense list + B-style popup detail + production placement diagram.
  */
 @Component({
   selector: 'app-my-reservations-prototype-host',
