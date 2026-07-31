@@ -1,4 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { isDevMode, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { map } from 'rxjs';
 import { Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
 import { SessionStore } from '../../../core/session/session.store';
@@ -9,16 +12,35 @@ import {
   reservationCanProposeChange,
 } from '../functions';
 import { ReservationCardComponent } from '../reservation-card/reservation-card.component';
+import { MyReservationsPrototypeHost } from './prototype/my-reservations-prototype-host';
+import type { PrototypeVariantKey } from './prototype/prototype-switcher';
+
+const isPrototypeVariant = (value: string | null | undefined): value is PrototypeVariantKey =>
+  value === 'A' || value === 'B' || value === 'C';
 
 @Component({
   selector: 'app-my-reservations-page',
-  imports: [PageLayout, ReservationCardComponent],
+  imports: [PageLayout, ReservationCardComponent, MyReservationsPrototypeHost],
   templateUrl: './my-reservations-page.component.html',
   styleUrl: '../sharing-page/sharing-page.component.css',
 })
 export class MyReservationsPageComponent {
   readonly #api = inject(SharingApi);
   readonly #session = inject(SessionStore);
+  readonly #route = inject(ActivatedRoute);
+  readonly #router = inject(Router);
+
+  /** PROTOTYPE gate (#22): ?variant=A|B|C shows throwaway UI; omit for production list. */
+  readonly prototypeVariant = toSignal(
+    this.#route.queryParamMap.pipe(
+      map((params) => {
+        const raw = params.get('variant');
+        return isPrototypeVariant(raw) ? raw : null;
+      }),
+    ),
+    { initialValue: null },
+  );
+
   readonly reservations = signal<readonly Reservation[]>([]);
   readonly proposals = signal<readonly ReservationChangeProposal[]>([]);
   readonly loading = signal(true);
@@ -42,6 +64,30 @@ export class MyReservationsPageComponent {
   );
   constructor() {
     void this.load();
+  }
+
+  readonly showPrototypeEntry = isDevMode;
+
+  setPrototypeVariant(variant: PrototypeVariantKey): void {
+    void this.#router.navigate([], {
+      relativeTo: this.#route,
+      queryParams: { variant },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  exitPrototype(): void {
+    void this.#router.navigate([], {
+      relativeTo: this.#route,
+      queryParams: { variant: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  enterPrototype(): void {
+    this.setPrototypeVariant('B');
   }
   async load(): Promise<void> {
     this.loading.set(true);

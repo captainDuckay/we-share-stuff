@@ -1,61 +1,78 @@
-<app-page-layout pageTitle="My reservations">
-  @if (loading()) {
-    <p role="status">Loading My reservations…</p>
-  }
-  @if (error()) {
-    <p class="sharing-page__error" role="alert">
-      {{ error() }}
-      <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
-    </p>
-  }
-  <nav class="sharing-page__tabs" aria-label="My reservations tabs">
-    <button
-      class="sharing-page__button sharing-page__tab-button"
-      type="button"
-      [class.sharing-page__active]="tab() === 'upcoming'"
-      (click)="tab.set('upcoming')"
-    >
-      Upcoming ({{ upcoming().length }})
-    </button>
-    <button
-      class="sharing-page__button sharing-page__tab-button"
-      type="button"
-      [class.sharing-page__active]="tab() === 'pending'"
-      (click)="tab.set('pending')"
-    >
-      Pending ({{ pending().length }})
-    </button>
-    <button
-      class="sharing-page__button sharing-page__tab-button"
-      type="button"
-      [class.sharing-page__active]="tab() === 'past'"
-      (click)="tab.set('past')"
-    >
-      Past ({{ past().length }})
-    </button>
-  </nav>
-  @if (!loading() && activeReservations().length === 0) {
-    <p>No Reservations in this tab.</p>
-  }
-  <ul class="sharing-page__plain-list sharing-page__compact-list">
-    @for (reservation of activeReservations(); track reservation.id) {
-      <li class="sharing-page__reservation-card">
-        <app-reservation-card
-          [reservation]="reservation"
-          [personName]="ownerName(reservation)"
-          [personPhotoUrl]="reservation.item.owner.profilePhotoUrl"
-          mode="requester"
-          [pendingProposalFromOther]="pendingProposalFromOther(reservation)"
-          [pendingProposalByMe]="pendingProposalByMe(reservation)"
-          [canCancelOrPropose]="canCancelOrPropose(reservation)"
-          (withdraw)="withdraw($event)"
-          (cancel)="cancel($event)"
-          (propose)="propose($event.reservation, $event.startLocal, $event.endLocal)"
-          (withdrawProposal)="withdrawProposal($event)"
-          (approveProposal)="approve($event)"
-          (rejectProposal)="reject($event)"
-        />
-      </li>
+@if (prototypeVariant(); as variant) {
+  <app-my-reservations-prototype-host
+    [variant]="variant"
+    (variantChange)="setPrototypeVariant($event)"
+    (exit)="exitPrototype()"
+  />
+} @else {
+  <app-page-layout pageTitle="My reservations">
+    @if (showPrototypeEntry()) {
+      <p class="sharing-page__panel" role="note">
+        <strong>PROTOTYPE (#22)</strong>
+        Throwaway My reservations UI variants are available in development.
+        <button class="sharing-page__button" type="button" (click)="enterPrototype()">
+          Open prototype (variant B)
+        </button>
+      </p>
     }
-  </ul>
-</app-page-layout>
+    @if (loading()) {
+      <p role="status">Loading My reservations…</p>
+    }
+    @if (error()) {
+      <p class="sharing-page__error" role="alert">
+        {{ error() }}
+        <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
+      </p>
+    }
+    <nav class="sharing-page__tabs" aria-label="My reservations tabs">
+      <button
+        class="sharing-page__button sharing-page__tab-button"
+        type="button"
+        [class.sharing-page__active]="tab() === 'upcoming'"
+        (click)="tab.set('upcoming')"
+      >
+        Upcoming ({{ upcoming().length }})
+      </button>
+      <button
+        class="sharing-page__button sharing-page__tab-button"
+        type="button"
+        [class.sharing-page__active]="tab() === 'pending'"
+        (click)="tab.set('pending')"
+      >
+        Pending ({{ pending().length }})
+      </button>
+      <button
+        class="sharing-page__button sharing-page__tab-button"
+        type="button"
+        [class.sharing-page__active]="tab() === 'past'"
+        (click)="tab.set('past')"
+      >
+        Past ({{ past().length }})
+      </button>
+    </nav>
+    @if (!loading() && activeReservations().length === 0) {
+      <p>No Reservations in this tab.</p>
+    }
+    <ul class="sharing-page__plain-list sharing-page__compact-list">
+      @for (reservation of activeReservations(); track reservation.id) {
+        <li class="sharing-page__reservation-card">
+          <app-reservation-card
+            [reservation]="reservation"
+            [personName]="ownerName(reservation)"
+            [personPhotoUrl]="reservation.item.owner.profilePhotoUrl"
+            mode="requester"
+            [pendingProposalFromOther]="pendingProposalFromOther(reservation)"
+            [pendingProposalByMe]="pendingProposalByMe(reservation)"
+            [canCancelOrPropose]="canCancelOrPropose(reservation)"
+            (withdraw)="withdraw($event)"
+            (cancel)="cancel($event)"
+            (propose)="propose($event.reservation, $event.startLocal, $event.endLocal)"
+            (withdrawProposal)="withdrawProposal($event)"
+            (approveProposal)="approve($event)"
+            (rejectProposal)="reject($event)"
+          />
+        </li>
+      }
+    </ul>
+  </app-page-layout>
+}
