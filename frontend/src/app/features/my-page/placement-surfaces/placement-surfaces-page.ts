@@ -32,8 +32,11 @@ import {
   SURFACE_NAME_MAX_LENGTH,
   ToolMode,
   clampRectSize,
+  formatMm,
   isLabelTaken,
   nextUniqueLabel,
+  roundMm,
+  roundPoint,
   toSceneSlot,
   toSceneStructure,
 } from './scene.model';
@@ -154,10 +157,10 @@ export class PlacementSurfacesPage implements AfterViewInit {
       const slot = this.selectedSlot();
       this.slotModel.set({
         label: slot?.label ?? '',
-        x: slot != null ? String(slot.x) : '',
-        y: slot != null ? String(slot.y) : '',
-        width: slot != null ? String(slot.width) : '',
-        height: slot != null ? String(slot.height) : '',
+        x: slot != null ? formatMm(slot.x) : '',
+        y: slot != null ? formatMm(slot.y) : '',
+        width: slot != null ? formatMm(slot.width) : '',
+        height: slot != null ? formatMm(slot.height) : '',
       });
     });
     effect(() => {
@@ -277,8 +280,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
         );
         const response = await this.#api.createSlot(this.locationId(), detail.id, {
           label,
-          x: event.x - DEFAULT_SLOT_WIDTH_MM / 2,
-          y: event.y - DEFAULT_SLOT_HEIGHT_MM / 2,
+          x: roundMm(event.x - DEFAULT_SLOT_WIDTH_MM / 2),
+          y: roundMm(event.y - DEFAULT_SLOT_HEIGHT_MM / 2),
           width: DEFAULT_SLOT_WIDTH_MM,
           height: DEFAULT_SLOT_HEIGHT_MM,
         });
@@ -291,8 +294,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
       } else if (event.tool === 'structure-rect') {
         const response = await this.#api.createDrawing(this.locationId(), detail.id, {
           kind: 'rect',
-          x: event.x - DEFAULT_STRUCT_WIDTH_MM / 2,
-          y: event.y - DEFAULT_STRUCT_HEIGHT_MM / 2,
+          x: roundMm(event.x - DEFAULT_STRUCT_WIDTH_MM / 2),
+          y: roundMm(event.y - DEFAULT_STRUCT_HEIGHT_MM / 2),
           width: DEFAULT_STRUCT_WIDTH_MM,
           height: DEFAULT_STRUCT_HEIGHT_MM,
         });
@@ -307,8 +310,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
         const response = await this.#api.createDrawing(this.locationId(), detail.id, {
           kind: 'polyline',
           points: [
-            { x: event.x - DEFAULT_LINE_HALF_LENGTH_MM, y: event.y },
-            { x: event.x + DEFAULT_LINE_HALF_LENGTH_MM, y: event.y },
+            roundPoint({ x: event.x - DEFAULT_LINE_HALF_LENGTH_MM, y: event.y }),
+            roundPoint({ x: event.x + DEFAULT_LINE_HALF_LENGTH_MM, y: event.y }),
           ],
         });
         const drawing = response.structuralDrawing;
@@ -409,7 +412,30 @@ export class PlacementSurfacesPage implements AfterViewInit {
     }
   }
 
+  onMoveEndpoint(event: { index: number; x: number; y: number }): void {
+    const sel = this.selection();
+    if (!sel || sel.kind !== 'structure-line') return;
+    this.detail.update((d) => {
+      if (!d) return d;
+      return {
+        ...d,
+        structuralDrawings: d.structuralDrawings.map((drawing) => {
+          if (drawing.id !== sel.id || drawing.kind !== 'polyline' || !drawing.points) {
+            return drawing;
+          }
+          return {
+            ...drawing,
+            points: drawing.points.map((point, index) =>
+              index === event.index ? { x: event.x, y: event.y } : point,
+            ),
+          };
+        }),
+      };
+    });
+  }
+
   async onInteractionEnd(): Promise<void> {
+    this.#snapSelectionGeometry();
     await this.#persistSelectionGeometry();
   }
 
@@ -468,22 +494,27 @@ export class PlacementSurfacesPage implements AfterViewInit {
     const detail = this.detail();
     if (!slot || !detail || this.busy()) return;
     const draft = this.slotModel();
-    const x = Number(draft.x);
-    const y = Number(draft.y);
-    const width = Number(draft.width);
-    const height = Number(draft.height);
+    const x = roundMm(Number(draft.x));
+    const y = roundMm(Number(draft.y));
+    const width = clampRectSize(Number(draft.width));
+    const height = clampRectSize(Number(draft.height));
     if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
-      this.formError.set('Slot geometry must be finite numbers with width and height > 0.');
+      this.formError.set('Slot geometry must be whole millimetres with width and height > 0.');
       this.slotModel.set({
         label: slot.label,
-        x: String(slot.x),
-        y: String(slot.y),
-        width: String(slot.width),
-        height: String(slot.height),
+        x: formatMm(slot.x),
+        y: formatMm(slot.y),
+        width: formatMm(slot.width),
+        height: formatMm(slot.height),
       });
       return;
     }
-    if (x === slot.x && y === slot.y && width === slot.width && height === slot.height) {
+    if (
+      x === roundMm(slot.x) &&
+      y === roundMm(slot.y) &&
+      width === clampRectSize(slot.width) &&
+      height === clampRectSize(slot.height)
+    ) {
       return;
     }
     this.busy.set(true);
@@ -598,6 +629,49 @@ export class PlacementSurfacesPage implements AfterViewInit {
     }
   }
 
+  #snapSelectionGeometry(): void {
+    const sel = this.selection();
+    if (!sel) return;
+    this.detail.update((d) => {
+      if (!d) return d;
+      if (sel.kind === 'slot') {
+        return {
+          ...d,
+          slots: d.slots.map((slot) =>
+            slot.id === sel.id
+              ? {
+                  ...slot,
+                  x: roundMm(slot.x),
+                  y: roundMm(slot.y),
+                  width: clampRectSize(slot.width),
+                  height: clampRectSize(slot.height),
+                }
+              : slot,
+          ),
+        };
+      }
+      return {
+        ...d,
+        structuralDrawings: d.structuralDrawings.map((drawing) => {
+          if (drawing.id !== sel.id) return drawing;
+          if (drawing.kind === 'rect') {
+            return {
+              ...drawing,
+              x: roundMm(drawing.x ?? 0),
+              y: roundMm(drawing.y ?? 0),
+              width: clampRectSize(drawing.width ?? DEFAULT_STRUCT_WIDTH_MM),
+              height: clampRectSize(drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM),
+            };
+          }
+          return {
+            ...drawing,
+            points: (drawing.points ?? []).map(roundPoint),
+          };
+        }),
+      };
+    });
+  }
+
   async #persistSelectionGeometry(): Promise<void> {
     const sel = this.selection();
     const detail = this.detail();
@@ -609,10 +683,10 @@ export class PlacementSurfacesPage implements AfterViewInit {
         const slot = detail.slots.find((entry) => entry.id === sel.id);
         if (!slot) return;
         const response = await this.#api.updateSlot(this.locationId(), detail.id, slot.id, {
-          x: slot.x,
-          y: slot.y,
-          width: slot.width,
-          height: slot.height,
+          x: roundMm(slot.x),
+          y: roundMm(slot.y),
+          width: clampRectSize(slot.width),
+          height: clampRectSize(slot.height),
         });
         const updated = response.placementSlot;
         this.detail.update((d) =>
@@ -632,10 +706,10 @@ export class PlacementSurfacesPage implements AfterViewInit {
             detail.id,
             drawing.id,
             {
-              x: drawing.x ?? 0,
-              y: drawing.y ?? 0,
-              width: drawing.width ?? DEFAULT_STRUCT_WIDTH_MM,
-              height: drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM,
+              x: roundMm(drawing.x ?? 0),
+              y: roundMm(drawing.y ?? 0),
+              width: clampRectSize(drawing.width ?? DEFAULT_STRUCT_WIDTH_MM),
+              height: clampRectSize(drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM),
             },
           );
           const updated = response.structuralDrawing;
@@ -654,7 +728,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
             this.locationId(),
             detail.id,
             drawing.id,
-            { points: drawing.points },
+            { points: drawing.points.map(roundPoint) },
           );
           const updated = response.structuralDrawing;
           this.detail.update((d) =>

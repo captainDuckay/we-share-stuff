@@ -1,4 +1,11 @@
-import { contentBoundsOf, isLabelTaken, nextUniqueLabel, SceneSurface } from './scene.model';
+import {
+  contentBoundsOf,
+  formatMm,
+  isLabelTaken,
+  nextUniqueLabel,
+  roundMm,
+  SceneSurface,
+} from './scene.model';
 
 const emptySurface = (id = 's1'): SceneSurface => ({
   id,
@@ -66,5 +73,11 @@ describe('placement surface scene helpers', () => {
   it('suggests unique slot labels', () => {
     const surfaces = [{ slots: [{ id: '1', label: 'Slot' }] }];
     expect(nextUniqueLabel(surfaces, 'Slot')).toBe('Slot 2');
+  });
+
+  it('rounds millimetres to whole units without float debris', () => {
+    expect(roundMm(-12.489883422851562)).toBe(-12);
+    expect(roundMm(106.73976135253906)).toBe(107);
+    expect(formatMm(-155.1619873046875)).toBe('-155');
   });
 });

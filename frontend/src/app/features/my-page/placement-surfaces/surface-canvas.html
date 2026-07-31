@@ -78,6 +78,20 @@
             [attr.points]="linePoints(shape.points)"
             (pointerdown)="onShapePointerDown($event, 'structure-line', shape.id)"
           />
+          @if (sel?.id === shape.id) {
+            @for (point of shape.points; track $index; let index = $index) {
+              <rect
+                class="surface-canvas__handle surface-canvas__handle--endpoint"
+                [attr.x]="point.x - 6"
+                [attr.y]="point.y - 6"
+                width="12"
+                height="12"
+                (pointerdown)="
+                  onShapePointerDown($event, 'structure-line', shape.id, 'endpoint', index)
+                "
+              />
+            }
+          }
         }
       }
     </g>

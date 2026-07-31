@@ -87,6 +87,10 @@
   cursor: nwse-resize;
 }
 
+.surface-canvas__handle--endpoint {
+  cursor: move;
+}
+
 .surface-canvas__extent {
   position: absolute;
   right: 0.5rem;

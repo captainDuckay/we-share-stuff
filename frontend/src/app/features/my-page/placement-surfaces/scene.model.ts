@@ -131,7 +131,24 @@ export function contentBoundsOf(surface: SceneSurface): ContentBounds | null {
 }
 
 export function clampRectSize(size: number): number {
-  return Math.max(MIN_RECT_SIZE_MM, size);
+  return Math.max(MIN_RECT_SIZE_MM, roundMm(size));
+}
+
+/** Sketch millimetres are whole units — avoids float noise in fields and overflow. */
+export function roundMm(value: number): number {
+  return Math.round(value);
+}
+
+/** Display millimetres without fractional float debris. */
+export function formatMm(value: number): string {
+  return String(roundMm(value));
+}
+
+export function roundPoint(point: { readonly x: number; readonly y: number }): {
+  x: number;
+  y: number;
+} {
+  return { x: roundMm(point.x), y: roundMm(point.y) };
 }
 
 export function toSceneSlot(slot: PlacementSlot): SceneSlot {
@@ -139,10 +156,10 @@ export function toSceneSlot(slot: PlacementSlot): SceneSlot {
     kind: 'slot',
     id: slot.id,
     label: slot.label,
-    x: slot.x,
-    y: slot.y,
-    width: slot.width,
-    height: slot.height,
+    x: roundMm(slot.x),
+    y: roundMm(slot.y),
+    width: clampRectSize(slot.width),
+    height: clampRectSize(slot.height),
   };
 }
 
@@ -151,15 +168,15 @@ export function toSceneStructure(drawing: StructuralDrawing): SceneStructure {
     return {
       kind: 'structure-rect',
       id: drawing.id,
-      x: drawing.x ?? 0,
-      y: drawing.y ?? 0,
-      width: drawing.width ?? DEFAULT_STRUCT_WIDTH_MM,
-      height: drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM,
+      x: roundMm(drawing.x ?? 0),
+      y: roundMm(drawing.y ?? 0),
+      width: clampRectSize(drawing.width ?? DEFAULT_STRUCT_WIDTH_MM),
+      height: clampRectSize(drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM),
     };
   }
   return {
     kind: 'structure-line',
     id: drawing.id,
-    points: drawing.points ?? [],
+    points: (drawing.points ?? []).map(roundPoint),
   };
 }

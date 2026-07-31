@@ -17,7 +17,7 @@ import {
   contentBoundsOf,
 } from './scene.model';
 
-type DragKind = 'move' | 'resize' | 'pan';
+type DragKind = 'move' | 'resize' | 'pan' | 'endpoint';
 
 @Component({
   selector: 'app-surface-canvas',
@@ -34,6 +34,7 @@ export class SurfaceCanvas {
   readonly placeAt = output<{ tool: ToolMode; x: number; y: number }>();
   readonly moveDelta = output<{ dx: number; dy: number }>();
   readonly resizeTo = output<{ width: number; height: number }>();
+  readonly moveEndpoint = output<{ index: number; x: number; y: number }>();
   readonly interactionEnd = output<void>();
 
   // Angular forbids ES private on viewChild fields (NG1053).
@@ -69,6 +70,7 @@ export class SurfaceCanvas {
         originWorldY: number;
         startW?: number;
         startH?: number;
+        pointIndex?: number;
       }
     | null = null;
   #suppressClick = false;
@@ -145,6 +147,7 @@ export class SurfaceCanvas {
     kind: SelectableKind,
     id: string,
     dragKind: DragKind = 'move',
+    pointIndex?: number,
   ): void {
     if (this.tool() === 'pan' || event.button === 1) {
       event.preventDefault();
@@ -186,6 +189,7 @@ export class SurfaceCanvas {
       originWorldY: pt.y,
       startW,
       startH,
+      pointIndex,
     };
     (event.target as Element).setPointerCapture?.(event.pointerId);
   }
@@ -220,12 +224,21 @@ export class SurfaceCanvas {
         width: this.#drag.startW + (pt.x - this.#drag.originWorldX),
         height: this.#drag.startH + (pt.y - this.#drag.originWorldY),
       });
+    } else if (this.#drag.kind === 'endpoint' && this.#drag.pointIndex != null) {
+      this.moveEndpoint.emit({
+        index: this.#drag.pointIndex,
+        x: pt.x,
+        y: pt.y,
+      });
     }
   }
 
   onPointerUp(event: PointerEvent): void {
     if (!this.#drag || event.pointerId !== this.#drag.pointerId) return;
-    const wasEdit = this.#drag.kind === 'move' || this.#drag.kind === 'resize';
+    const wasEdit =
+      this.#drag.kind === 'move' ||
+      this.#drag.kind === 'resize' ||
+      this.#drag.kind === 'endpoint';
     this.#suppressClick = true;
     this.#drag = null;
     if (wasEdit) this.interactionEnd.emit();
