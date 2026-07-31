@@ -688,3 +688,250 @@ def test_reservation_change_proposal_requires_other_party_approval(
     listed = client.get(f"/api/reservations/{reservation['id']}/change-proposals")
     assert listed.status_code == 200
     assert listed.json()["changeProposals"][0]["status"] == "approved"
+
+
+def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
+    client: TestClient,
+) -> None:
+    """Free-text Typical Placement freezes at accept; cancel hides; re-accept refreshes.
+
+    Covers issue #12: borrower sees snapshot (not live inventory); owner edits after
+    accept do not rewrite borrower reveal; date-time-only Change Proposal keeps snapshot.
+    """
+    owner, member, group_id, item = shared_reservation_fixture(
+        client,
+        "placement-snapshot-owner@example.com",
+        "placement-snapshot-member@example.com",
+    )
+    # Fixture item has typicalPlacement "Blue bin"
+    reservation = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-12-01T10:00:00",
+        "2099-12-01T12:00:00",
+    )
+
+    # Pre-accept: borrower does not see Typical Placement (reservation + shared item)
+    member_headers = use_session(client, member)
+    pending = client.get(f"/api/reservations/{reservation['id']}")
+    assert pending.status_code == 200
+    assert pending.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+    }
+    shared_pending = client.get(
+        f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
+    )
+    assert shared_pending.status_code == 200
+    assert shared_pending.json()["sharedItem"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+    }
+
+    owner_headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation['id']}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+    # Owner still sees live placement on accept response
+    assert accepted.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+    }
+
+    member_headers = use_session(client, member)
+    frozen = client.get(f"/api/reservations/{reservation['id']}")
+    assert frozen.status_code == 200
+    assert frozen.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+    }
+    shared_accepted = client.get(
+        f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
+    )
+    assert shared_accepted.json()["sharedItem"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+    }
+
+    # Owner edits live free-text after accept — borrower snapshot must not rewrite
+    owner_headers = use_session(client, owner)
+    edited = client.patch(
+        f"/api/items/{item['id']}",
+        headers=owner_headers,
+        json={"typicalPlacement": " Red shelf "},
+    )
+    assert edited.status_code == 200
+    assert edited.json()["item"]["typicalPlacement"] == "Red shelf"
+
+    member_headers = use_session(client, member)
+    still_frozen = client.get(f"/api/reservations/{reservation['id']}")
+    assert still_frozen.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+    }
+    shared_still_frozen = client.get(
+        f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
+    )
+    assert shared_still_frozen.json()["sharedItem"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+    }
+
+    # Owner viewing the same reservation still sees live placement
+    owner_headers = use_session(client, owner)
+    owner_view = client.get(f"/api/reservations/{reservation['id']}")
+    assert owner_view.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Red shelf",
+    }
+
+    # Approving a date-time-only Change Proposal must not re-snapshot placement
+    member_headers = use_session(client, member)
+    proposal = client.post(
+        f"/api/reservations/{reservation['id']}/change-proposals",
+        headers=member_headers,
+        json={
+            "startLocal": "2099-12-02T10:00:00",
+            "endLocal": "2099-12-02T12:00:00",
+        },
+    )
+    assert proposal.status_code == 201
+    change_proposal_id = proposal.json()["changeProposal"]["id"]
+
+    owner_headers = use_session(client, owner)
+    approve = client.post(
+        f"/api/reservation-change-proposals/{change_proposal_id}/approve",
+        headers=owner_headers,
+    )
+    assert approve.status_code == 200
+    assert approve.json()["changeProposal"]["reservation"]["startLocal"] == (
+        "2099-12-02T10:00:00"
+    )
+
+    member_headers = use_session(client, member)
+    after_proposal = client.get(f"/api/reservations/{reservation['id']}")
+    assert after_proposal.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+    }
+    assert after_proposal.json()["reservation"]["startLocal"] == "2099-12-02T10:00:00"
+
+    # Cancel hides Typical Placement from the borrower again
+    cancel = client.post(
+        f"/api/reservations/{reservation['id']}/cancel", headers=member_headers
+    )
+    assert cancel.status_code == 200
+    assert cancel.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+    }
+    shared_cancelled = client.get(
+        f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
+    )
+    assert shared_cancelled.json()["sharedItem"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+    }
+
+    # Re-accept a *new* pending Reservation captures a fresh snapshot from live text
+    owner_headers = use_session(client, owner)
+    clear_placement = client.patch(
+        f"/api/items/{item['id']}",
+        headers=owner_headers,
+        json={"typicalPlacement": "  Garage loft  "},
+    )
+    assert clear_placement.status_code == 200
+    assert clear_placement.json()["item"]["typicalPlacement"] == "Garage loft"
+
+    re_request = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-12-10T10:00:00",
+        "2099-12-10T12:00:00",
+    )
+    member_headers = use_session(client, member)
+    re_pending = client.get(f"/api/reservations/{re_request['id']}")
+    assert re_pending.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+    }
+
+    owner_headers = use_session(client, owner)
+    re_accept = client.post(
+        f"/api/reservations/{re_request['id']}/accept", headers=owner_headers
+    )
+    assert re_accept.status_code == 200
+
+    member_headers = use_session(client, member)
+    re_frozen = client.get(f"/api/reservations/{re_request['id']}")
+    assert re_frozen.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Garage loft",
+    }
+
+
+def test_typical_placement_snapshot_freezes_empty_when_none_set(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "empty-placement-owner@example.com")
+    member = register_user(client, "empty-placement-member@example.com")
+    group_id = create_group_and_invite_member(
+        client, owner, member, "empty-placement-member@example.com"
+    )
+
+    owner_headers = use_session(client, owner)
+    location = create_location(client, owner_headers)
+    # No typicalPlacement on create → empty freeze
+    item = create_item(client, owner_headers, location["id"])
+    assert item.get("typicalPlacement") is None
+    share = client.post(
+        f"/api/items/{item['id']}/sharing-groups/{group_id}", headers=owner_headers
+    )
+    assert share.status_code == 201
+
+    reservation = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-12-20T10:00:00",
+        "2099-12-20T12:00:00",
+    )
+    owner_headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation['id']}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+
+    use_session(client, member)
+    frozen = client.get(f"/api/reservations/{reservation['id']}")
+    assert frozen.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": None,
+    }
+
+    # Live owner edit after empty freeze still must not leak to borrower
+    owner_headers = use_session(client, owner)
+    edited = client.patch(
+        f"/api/items/{item['id']}",
+        headers=owner_headers,
+        json={"typicalPlacement": "Now filled in"},
+    )
+    assert edited.status_code == 200
+
+    use_session(client, member)
+    still_empty = client.get(f"/api/reservations/{reservation['id']}")
+    assert still_empty.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": None,
+    }
+    shared = client.get(f"/api/sharing-groups/{group_id}/shared-items/{item['id']}")
+    assert shared.json()["sharedItem"]["typicalPlacement"] == {
+        "visible": True,
+        "value": None,
+    }
