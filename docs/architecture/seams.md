@@ -77,6 +77,17 @@ Typical Placement is either:
 
 Typical Placement is optional and encouraged, not required. It is hidden from other Users until a Reservation is accepted. On acceptance, the borrowing User receives a **frozen snapshot** of Typical Placement as of that moment; the owning User's live inventory and Surfaces stay editable without rewriting the borrower's directions.
 
+**Item create/edit linking flow** (product level):
+
+- **Free-text first.** The Item editor always leads with free-text Typical Placement; linking a Placement Slot is an optional upgrade, never required because Surfaces exist.
+- **On link:** existing free text becomes the optional note; the Slot (stable id) is the primary address.
+- **On unlink:** explicit control drops the Slot; the note becomes free-text Typical Placement again (no confirm).
+- **On Typical Location change or clear:** auto-clear the Slot link; keep the note as free text; soft notice that the slot was cleared. Do not block the Location change; do not re-link by matching labels on the new Location.
+- **Slot → Slot:** keep the note.
+- **Soft suggestions:** when the Location has Slots, show a compact label list/chips (Surface as secondary). Choosing one upgrades to a link. Free text stays primary; never force browse.
+- **Picker:** label-first, scoped to this Location; optional light parent-Surface preview with the Slot highlighted. No embedded surface editor in the Item flow—geometry stays on My Page → Typical Location management (“Manage surfaces…”).
+- Empty placement remains allowed. Assignment is the same relationship from the Item editor and from canvas/slot details.
+
 ### Placement Surface and Placement Slot
 
 A Placement Surface is a drawable 2D surface under a Typical Location (for example one wall of storage). A Location may have many Surfaces.
@@ -109,7 +120,7 @@ Owner editor intent (product level, from prototype #7):
 - Multiple Surfaces via **tabs** under the Typical Location.
 - Draw tools live **inside** the sketch window as a vertical icon rail (Photoshop-like), not a CAD ribbon outside the sketch.
 - Wheel zoom and pan on the infinite plane; schematic (not warehouse CAD).
-- **Assigning Items to Slots** is available in both places: slot/surface details on the canvas page, and the Item editor (Typical Placement link). Linking rules themselves stay for the Item Typical Placement ticket.
+- **Assigning Items to Slots** is available in both places: slot/surface details on the canvas page, and the Item editor (Typical Placement link). Item-editor linking rules: free-text first, optional upgrade, note promotion/restore, Location-change auto-clear—see Typical Placement above.
 
 Only the owning User of the Typical Location edits Surfaces, Slots, and Structural Drawings. Members never edit them.
 
