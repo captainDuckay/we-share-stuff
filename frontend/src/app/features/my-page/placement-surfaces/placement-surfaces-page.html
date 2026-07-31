@@ -86,6 +86,7 @@
                 (placeAt)="onPlaceAt($event)"
                 (moveDelta)="onMoveDelta($event)"
                 (resizeTo)="onResizeTo($event)"
+                (moveEndpoint)="onMoveEndpoint($event)"
                 (interactionEnd)="onInteractionEnd()"
               />
             </div>
@@ -167,9 +168,16 @@
                 Width/height fields are the same values as the canvas rectangle. Stable id:
                 <code>{{ slot.id }}</code>
               </p>
-            } @else if (selectedStructure()) {
+            } @else if (selectedStructure(); as structure) {
               <h3>Structural drawing</h3>
-              <p class="ps-page__note">Visual only — no label, never linkable.</p>
+              <p class="ps-page__note">
+                Visual only — no label, never linkable.
+                @if (structure.kind === 'polyline') {
+                  Drag an endpoint handle to lengthen or angle the divider.
+                } @else {
+                  Drag the corner handle to resize.
+                }
+              </p>
             } @else {
               <p class="ps-page__note">
                 Select a slot to edit its label and size. Wheel to zoom; pan tool to roam.
