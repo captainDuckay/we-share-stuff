@@ -22,10 +22,10 @@ type DragKind = 'move' | 'resize' | 'pan';
 @Component({
   selector: 'app-surface-canvas',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './surface-canvas.component.html',
-  styleUrl: './surface-canvas.component.css',
+  templateUrl: './surface-canvas.html',
+  styleUrl: './surface-canvas.css',
 })
-export class SurfaceCanvasComponent {
+export class SurfaceCanvas {
   readonly surface = input.required<SceneSurface>();
   readonly tool = input.required<ToolMode>();
   readonly selection = input<Selection | null>(null);
@@ -36,6 +36,7 @@ export class SurfaceCanvasComponent {
   readonly resizeTo = output<{ width: number; height: number }>();
   readonly interactionEnd = output<void>();
 
+  // Angular forbids ES private on viewChild fields (NG1053).
   private readonly svgRef = viewChild<ElementRef<SVGSVGElement>>('svg');
   private readonly hostRef = viewChild<ElementRef<HTMLElement>>('host');
 
@@ -56,7 +57,7 @@ export class SurfaceCanvasComponent {
     return `Derived extent ~ ${Math.round(b.width)} × ${Math.round(b.height)} mm (from content)`;
   });
 
-  private drag:
+  #drag:
     | {
         kind: DragKind;
         pointerId: number;
@@ -70,11 +71,11 @@ export class SurfaceCanvasComponent {
         startH?: number;
       }
     | null = null;
-  private suppressClick = false;
+  #suppressClick = false;
 
   onWheel(event: WheelEvent): void {
     event.preventDefault();
-    const pt = this.toSvgPoint(event);
+    const pt = this.#toSvgPoint(event);
     if (!pt) return;
     const factor = event.deltaY > 0 ? 1.12 : 1 / 1.12;
     const nextW = clamp(this.camW() * factor, 80, 20000);
@@ -116,23 +117,23 @@ export class SurfaceCanvasComponent {
   onCanvasPointerDown(event: PointerEvent): void {
     if (event.button === 1 || this.tool() === 'pan' || event.button === 2) {
       event.preventDefault();
-      this.beginPan(event);
+      this.#beginPan(event);
     }
   }
 
   onCanvasClick(event: MouseEvent): void {
-    if (this.suppressClick) {
-      this.suppressClick = false;
+    if (this.#suppressClick) {
+      this.#suppressClick = false;
       return;
     }
-    if (this.drag) return;
+    if (this.#drag) return;
     if (this.tool() === 'pan') return;
     const tool = this.tool();
     if (tool === 'select') {
       this.selectShape.emit(null);
       return;
     }
-    const pt = this.toSvgPoint(event);
+    const pt = this.#toSvgPoint(event);
     if (!pt) return;
     if (tool === 'slot' || tool === 'structure-rect' || tool === 'structure-line') {
       this.placeAt.emit({ tool, x: pt.x, y: pt.y });
@@ -148,13 +149,13 @@ export class SurfaceCanvasComponent {
     if (this.tool() === 'pan' || event.button === 1) {
       event.preventDefault();
       event.stopPropagation();
-      this.beginPan(event);
+      this.#beginPan(event);
       return;
     }
     event.stopPropagation();
     event.preventDefault();
     this.selectShape.emit({ kind, id });
-    const pt = this.toSvgPoint(event);
+    const pt = this.#toSvgPoint(event);
     if (!pt) return;
     const surface = this.surface();
     let startW: number | undefined;
@@ -174,7 +175,7 @@ export class SurfaceCanvasComponent {
         }
       }
     }
-    this.drag = {
+    this.#drag = {
       kind: dragKind,
       pointerId: event.pointerId,
       lastClientX: event.clientX,
@@ -190,43 +191,43 @@ export class SurfaceCanvasComponent {
   }
 
   onPointerMove(event: PointerEvent): void {
-    if (!this.drag || event.pointerId !== this.drag.pointerId) return;
-    if (this.drag.kind === 'pan') {
+    if (!this.#drag || event.pointerId !== this.#drag.pointerId) return;
+    if (this.#drag.kind === 'pan') {
       const scaleX = this.camW() / Math.max(1, this.svgRef()?.nativeElement.clientWidth ?? 1);
       const scaleY = this.camH() / Math.max(1, this.svgRef()?.nativeElement.clientHeight ?? 1);
-      const dx = (event.clientX - this.drag.lastClientX) * scaleX;
-      const dy = (event.clientY - this.drag.lastClientY) * scaleY;
+      const dx = (event.clientX - this.#drag.lastClientX) * scaleX;
+      const dy = (event.clientY - this.#drag.lastClientY) * scaleY;
       this.camX.update((x) => x - dx);
       this.camY.update((y) => y - dy);
-      this.drag = {
-        ...this.drag,
+      this.#drag = {
+        ...this.#drag,
         lastClientX: event.clientX,
         lastClientY: event.clientY,
       };
       return;
     }
 
-    const pt = this.toSvgPoint(event);
+    const pt = this.#toSvgPoint(event);
     if (!pt) return;
-    if (this.drag.kind === 'move') {
+    if (this.#drag.kind === 'move') {
       this.moveDelta.emit({
-        dx: pt.x - this.drag.lastWorldX,
-        dy: pt.y - this.drag.lastWorldY,
+        dx: pt.x - this.#drag.lastWorldX,
+        dy: pt.y - this.#drag.lastWorldY,
       });
-      this.drag = { ...this.drag, lastWorldX: pt.x, lastWorldY: pt.y };
-    } else if (this.drag.kind === 'resize' && this.drag.startW != null && this.drag.startH != null) {
+      this.#drag = { ...this.#drag, lastWorldX: pt.x, lastWorldY: pt.y };
+    } else if (this.#drag.kind === 'resize' && this.#drag.startW != null && this.#drag.startH != null) {
       this.resizeTo.emit({
-        width: this.drag.startW + (pt.x - this.drag.originWorldX),
-        height: this.drag.startH + (pt.y - this.drag.originWorldY),
+        width: this.#drag.startW + (pt.x - this.#drag.originWorldX),
+        height: this.#drag.startH + (pt.y - this.#drag.originWorldY),
       });
     }
   }
 
   onPointerUp(event: PointerEvent): void {
-    if (!this.drag || event.pointerId !== this.drag.pointerId) return;
-    const wasEdit = this.drag.kind === 'move' || this.drag.kind === 'resize';
-    this.suppressClick = true;
-    this.drag = null;
+    if (!this.#drag || event.pointerId !== this.#drag.pointerId) return;
+    const wasEdit = this.#drag.kind === 'move' || this.#drag.kind === 'resize';
+    this.#suppressClick = true;
+    this.#drag = null;
     if (wasEdit) this.interactionEnd.emit();
   }
 
@@ -252,8 +253,8 @@ export class SurfaceCanvasComponent {
     };
   }
 
-  private beginPan(event: PointerEvent): void {
-    this.drag = {
+  #beginPan(event: PointerEvent): void {
+    this.#drag = {
       kind: 'pan',
       pointerId: event.pointerId,
       lastClientX: event.clientX,
@@ -266,7 +267,7 @@ export class SurfaceCanvasComponent {
     (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
   }
 
-  private toSvgPoint(
+  #toSvgPoint(
     event: MouseEvent | PointerEvent | WheelEvent,
   ): { x: number; y: number } | null {
     const svg = this.svgRef()?.nativeElement;

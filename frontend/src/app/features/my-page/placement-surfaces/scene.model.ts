@@ -1,5 +1,7 @@
 /** Pure scene helpers for Placement Surface sketch (mm plane). */
 
+import type { PlacementSlot, StructuralDrawing } from '../../../core/api/model';
+
 export type ToolMode = 'select' | 'pan' | 'slot' | 'structure-rect' | 'structure-line';
 
 export type SelectableKind = 'slot' | 'structure-rect' | 'structure-line';
@@ -130,4 +132,34 @@ export function contentBoundsOf(surface: SceneSurface): ContentBounds | null {
 
 export function clampRectSize(size: number): number {
   return Math.max(MIN_RECT_SIZE_MM, size);
+}
+
+export function toSceneSlot(slot: PlacementSlot): SceneSlot {
+  return {
+    kind: 'slot',
+    id: slot.id,
+    label: slot.label,
+    x: slot.x,
+    y: slot.y,
+    width: slot.width,
+    height: slot.height,
+  };
+}
+
+export function toSceneStructure(drawing: StructuralDrawing): SceneStructure {
+  if (drawing.kind === 'rect') {
+    return {
+      kind: 'structure-rect',
+      id: drawing.id,
+      x: drawing.x ?? 0,
+      y: drawing.y ?? 0,
+      width: drawing.width ?? DEFAULT_STRUCT_WIDTH_MM,
+      height: drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM,
+    };
+  }
+  return {
+    kind: 'structure-line',
+    id: drawing.id,
+    points: drawing.points ?? [],
+  };
 }

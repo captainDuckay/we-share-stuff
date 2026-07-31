@@ -8,14 +8,12 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormField, form, maxLength, validate } from '@angular/forms/signals';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
-  PlacementSlot,
   PlacementSurfaceDetail,
   PlacementSurfaceSummary,
-  StructuralDrawing,
 } from '../../../core/api/model';
 import { PlacementSurfacesApi } from '../../../core/api/placement-surfaces-api.service';
 import { TypicalLocationsApi } from '../../../core/api/typical-locations-api.service';
@@ -27,8 +25,6 @@ import {
   DEFAULT_SLOT_WIDTH_MM,
   DEFAULT_STRUCT_HEIGHT_MM,
   DEFAULT_STRUCT_WIDTH_MM,
-  SceneSlot,
-  SceneStructure,
   SceneSurface,
   SelectableKind,
   Selection,
@@ -38,8 +34,10 @@ import {
   clampRectSize,
   isLabelTaken,
   nextUniqueLabel,
+  toSceneSlot,
+  toSceneStructure,
 } from './scene.model';
-import { SurfaceCanvasComponent } from './surface-canvas.component';
+import { SurfaceCanvas } from './surface-canvas';
 
 interface ToolDef {
   id: ToolMode;
@@ -52,11 +50,11 @@ interface ToolDef {
   selector: 'app-placement-surfaces-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    FormsModule,
+    FormField,
     MaterialSymbolIconComponent,
     PageLayout,
     RouterLink,
-    SurfaceCanvasComponent,
+    SurfaceCanvas,
   ],
   templateUrl: './placement-surfaces-page.html',
   styleUrl: './placement-surfaces-page.css',
@@ -66,7 +64,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly #api = inject(PlacementSurfacesApi);
   readonly #locationsApi = inject(TypicalLocationsApi);
 
-  private readonly canvas = viewChild(SurfaceCanvasComponent);
+  // Angular forbids ES private on viewChild fields (NG1053).
+  private readonly canvas = viewChild(SurfaceCanvas);
 
   readonly locationId = signal(this.#route.snapshot.paramMap.get('locationId') ?? '');
   readonly locationName = signal('Typical Location');
@@ -81,12 +80,31 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly formError = signal('');
   readonly announcement = signal('');
 
-  surfaceNameDraft = '';
-  slotLabelDraft = '';
-  slotX = '';
-  slotY = '';
-  slotW = '';
-  slotH = '';
+  readonly surfaceModel = signal({ name: '' });
+  readonly surfaceForm = form(this.surfaceModel, (path) => {
+    validate(path.name, ({ value }) =>
+      value().trim() ? undefined : { kind: 'required', message: 'Enter a surface name.' },
+    );
+    maxLength(path.name, SURFACE_NAME_MAX_LENGTH, {
+      message: `Use at most ${SURFACE_NAME_MAX_LENGTH} characters.`,
+    });
+  });
+
+  readonly slotModel = signal({
+    label: '',
+    x: '',
+    y: '',
+    width: '',
+    height: '',
+  });
+  readonly slotForm = form(this.slotModel, (path) => {
+    validate(path.label, ({ value }) =>
+      value().trim() ? undefined : { kind: 'required', message: 'Slot label cannot be empty.' },
+    );
+    maxLength(path.label, SLOT_LABEL_MAX_LENGTH, {
+      message: `Use at most ${SLOT_LABEL_MAX_LENGTH} characters for the label.`,
+    });
+  });
 
   readonly tools: ToolDef[] = [
     { id: 'select', label: 'Select', icon: 'arrow-selector-tool', hint: 'Select / move / resize' },
@@ -134,11 +152,13 @@ export class PlacementSurfacesPage implements AfterViewInit {
   constructor() {
     effect(() => {
       const slot = this.selectedSlot();
-      this.slotLabelDraft = slot?.label ?? '';
-      this.slotX = slot != null ? String(slot.x) : '';
-      this.slotY = slot != null ? String(slot.y) : '';
-      this.slotW = slot != null ? String(slot.width) : '';
-      this.slotH = slot != null ? String(slot.height) : '';
+      this.slotModel.set({
+        label: slot?.label ?? '',
+        x: slot != null ? String(slot.x) : '',
+        y: slot != null ? String(slot.y) : '',
+        width: slot != null ? String(slot.width) : '',
+        height: slot != null ? String(slot.height) : '',
+      });
     });
     effect(() => {
       this.activeSurfaceId();
@@ -187,7 +207,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
   async applySurfaceName(): Promise<void> {
     const detail = this.detail();
     if (!detail || this.busy()) return;
-    const name = this.surfaceNameDraft.trim();
+    const name = this.surfaceModel().name.trim();
     if (!name || name === detail.name) return;
     if (name.length > SURFACE_NAME_MAX_LENGTH) {
       this.formError.set(`Use at most ${SURFACE_NAME_MAX_LENGTH} characters for the name.`);
@@ -206,7 +226,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
             : surface,
         ),
       );
-      this.surfaceNameDraft = updated.name;
+      this.surfaceModel.set({ name: updated.name });
       this.announcement.set(`Surface renamed to ${updated.name}.`);
     } catch {
       this.formError.set('We could not rename that Placement Surface.');
@@ -397,10 +417,10 @@ export class PlacementSurfacesPage implements AfterViewInit {
     const slot = this.selectedSlot();
     const detail = this.detail();
     if (!slot || !detail || this.busy()) return;
-    const label = this.slotLabelDraft.trim();
+    const label = this.slotModel().label.trim();
     if (!label) {
       this.formError.set('Slot label cannot be empty.');
-      this.slotLabelDraft = slot.label;
+      this.slotModel.update((m) => ({ ...m, label: slot.label }));
       return;
     }
     if (label.length > SLOT_LABEL_MAX_LENGTH) {
@@ -416,7 +436,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       this.formError.set(
         `“${label}” is already used on this Typical Location. Labels must be unique.`,
       );
-      this.slotLabelDraft = slot.label;
+      this.slotModel.update((m) => ({ ...m, label: slot.label }));
       return;
     }
     this.busy.set(true);
@@ -437,7 +457,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       this.announcement.set(`Slot label → “${updated.label}”.`);
     } catch (error) {
       this.formError.set(this.#friendlyError(error, 'We could not rename that Slot.'));
-      this.slotLabelDraft = slot.label;
+      this.slotModel.update((m) => ({ ...m, label: slot.label }));
     } finally {
       this.busy.set(false);
     }
@@ -447,16 +467,20 @@ export class PlacementSurfacesPage implements AfterViewInit {
     const slot = this.selectedSlot();
     const detail = this.detail();
     if (!slot || !detail || this.busy()) return;
-    const x = Number(this.slotX);
-    const y = Number(this.slotY);
-    const width = Number(this.slotW);
-    const height = Number(this.slotH);
+    const draft = this.slotModel();
+    const x = Number(draft.x);
+    const y = Number(draft.y);
+    const width = Number(draft.width);
+    const height = Number(draft.height);
     if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
       this.formError.set('Slot geometry must be finite numbers with width and height > 0.');
-      this.slotX = String(slot.x);
-      this.slotY = String(slot.y);
-      this.slotW = String(slot.width);
-      this.slotH = String(slot.height);
+      this.slotModel.set({
+        label: slot.label,
+        x: String(slot.x),
+        y: String(slot.y),
+        width: String(slot.width),
+        height: String(slot.height),
+      });
       return;
     }
     if (x === slot.x && y === slot.y && width === slot.width && height === slot.height) {
@@ -565,7 +589,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       const detail = response.placementSurface as PlacementSurfaceDetail;
       this.detail.set(detail);
       this.activeSurfaceId.set(detail.id);
-      this.surfaceNameDraft = detail.name;
+      this.surfaceModel.set({ name: detail.name });
       this.selection.set(null);
     } catch {
       this.formError.set('We could not load that Placement Surface.');
@@ -678,34 +702,4 @@ export class PlacementSurfacesPage implements AfterViewInit {
     }
     return fallback;
   }
-}
-
-function toSceneSlot(slot: PlacementSlot): SceneSlot {
-  return {
-    kind: 'slot',
-    id: slot.id,
-    label: slot.label,
-    x: slot.x,
-    y: slot.y,
-    width: slot.width,
-    height: slot.height,
-  };
-}
-
-function toSceneStructure(drawing: StructuralDrawing): SceneStructure {
-  if (drawing.kind === 'rect') {
-    return {
-      kind: 'structure-rect',
-      id: drawing.id,
-      x: drawing.x ?? 0,
-      y: drawing.y ?? 0,
-      width: drawing.width ?? DEFAULT_STRUCT_WIDTH_MM,
-      height: drawing.height ?? DEFAULT_STRUCT_HEIGHT_MM,
-    };
-  }
-  return {
-    kind: 'structure-line',
-    id: drawing.id,
-    points: drawing.points ?? [],
-  };
 }
