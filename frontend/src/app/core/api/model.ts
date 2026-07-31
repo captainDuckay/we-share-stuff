@@ -30,12 +30,23 @@ export interface Category {
   readonly name: string;
 }
 
+/** Owner-facing summary of a Placement Slot linked as Typical Placement. */
+export interface ItemPlacementSlot {
+  readonly id: string;
+  readonly label: string;
+  readonly surfaceId: string;
+  readonly surfaceName: string;
+}
+
 export interface Item {
   readonly id: string;
   readonly name: string;
   readonly description: string | null;
   readonly typicalLocation: TypicalLocation | null;
+  /** Free text when unlinked; optional note when linked to a Placement Slot. */
   readonly typicalPlacement: string | null;
+  readonly placementSlotId: string | null;
+  readonly placementSlot: ItemPlacementSlot | null;
   readonly categories?: readonly Category[];
   readonly photoUrl: string | null;
   readonly createdAt: string;
@@ -380,6 +391,7 @@ export interface ItemInput {
   readonly description: string | null;
   readonly typicalLocationId?: string | null;
   readonly typicalPlacement?: string | null;
+  readonly placementSlotId?: string | null;
   readonly categories?: readonly string[];
 }
 

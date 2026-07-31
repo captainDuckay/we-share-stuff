@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InventoryApi } from '../../../core/api/inventory-api.service';
 import { ItemPhotosApi } from '../../../core/api/item-photos-api.service';
 import { Item } from '../../../core/api/model';
+import { PlacementSurfacesApi } from '../../../core/api/placement-surfaces-api.service';
 import { TypicalLocationsApi } from '../../../core/api/typical-locations-api.service';
 import { OwnedItemEditor } from './owned-item-editor';
 
@@ -12,6 +13,8 @@ const ITEM: Item = {
   description: 'Two person',
   typicalLocation: null,
   typicalPlacement: null,
+  placementSlotId: null,
+  placementSlot: null,
   photoUrl: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
@@ -29,6 +32,13 @@ describe('OwnedItemEditor', () => {
         {
           provide: TypicalLocationsApi,
           useValue: { list: vi.fn().mockResolvedValue({ typicalLocations: [] }) },
+        },
+        {
+          provide: PlacementSurfacesApi,
+          useValue: {
+            list: vi.fn().mockResolvedValue({ placementSurfaces: [] }),
+            get: vi.fn(),
+          },
         },
       ],
     });

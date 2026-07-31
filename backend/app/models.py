@@ -203,6 +203,7 @@ class PlacementSlot(Base):
     )
 
     surface: Mapped[PlacementSurface] = relationship(back_populates="slots")
+    linked_items: Mapped[list[Item]] = relationship(back_populates="placement_slot")
 
 
 class StructuralDrawing(Base):
@@ -275,6 +276,11 @@ class Item(Base):
         index=True,
     )
     typical_placement: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    placement_slot_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("placement_slots.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -283,6 +289,9 @@ class Item(Base):
     )
 
     typical_location: Mapped[TypicalLocation | None] = relationship()
+    placement_slot: Mapped[PlacementSlot | None] = relationship(
+        back_populates="linked_items"
+    )
 
 
 class Category(Base):

@@ -1,5 +1,7 @@
 import {
   Component,
+  computed,
+  effect,
   inject,
   input,
   linkedSignal,
@@ -11,11 +13,23 @@ import {
 import { FormField, form, maxLength, submit, validate } from '@angular/forms/signals';
 import { InventoryApi } from '../../../core/api/inventory-api.service';
 import { ItemPhotosApi } from '../../../core/api/item-photos-api.service';
-import { Item, ItemPhoto, SharedItem, TypicalLocation } from '../../../core/api/model';
+import {
+  Item,
+  ItemPhoto,
+  PlacementSurfaceDetail,
+  SharedItem,
+  TypicalLocation,
+} from '../../../core/api/model';
+import { PlacementSurfacesApi } from '../../../core/api/placement-surfaces-api.service';
 import { TypicalLocationsApi } from '../../../core/api/typical-locations-api.service';
 import { friendlyApiError, ITEM_PHOTO_ACCEPT, photoInputError } from '../functions';
 import { OwnedItemSummary } from '../owned-item-summary/owned-item-summary';
-import { itemEditModel, itemUpdateInput } from './functions';
+import {
+  applyTypicalLocationSelection,
+  itemEditModel,
+  itemUpdateInput,
+  placementSlotOptions,
+} from './functions';
 
 const ITEM_NAME_MAX_LENGTH = 200;
 const ITEM_DESCRIPTION_MAX_LENGTH = 2_000;
@@ -31,6 +45,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   readonly #inventoryApi = inject(InventoryApi);
   readonly #photosApi = inject(ItemPhotosApi);
   readonly #locationsApi = inject(TypicalLocationsApi);
+  readonly #surfacesApi = inject(PlacementSurfacesApi);
 
   readonly item = input.required<Item>();
   readonly sharedItem = input<SharedItem | null>(null);
@@ -58,12 +73,40 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   readonly selectedPhoto = signal<File | null>(null);
   readonly selectedPhotoPreviewUrl = signal('');
   readonly loadingSupport = signal(true);
+  readonly loadingSlots = signal(false);
   readonly editing = signal(false);
   readonly saving = signal(false);
   readonly photoBusy = signal(false);
   readonly error = signal('');
   readonly photoError = signal('');
   readonly announcement = signal('');
+  readonly slotClearedNotice = signal('');
+  readonly #locationSurfaces = signal<readonly PlacementSurfaceDetail[]>([]);
+  readonly slotOptions = computed(() => {
+    const linked = this.item().placementSlot;
+    const ensureSlot =
+      linked && this.editModel().placementSlotId === linked.id
+        ? {
+            id: linked.id,
+            label: linked.label,
+            surfaceName: linked.surfaceName,
+          }
+        : null;
+    return placementSlotOptions(this.#locationSurfaces(), ensureSlot);
+  });
+  /** Location id before the latest location control change (for slot auto-clear). */
+  #committedLocationId = '';
+
+  constructor() {
+    effect(() => {
+      const locationId = this.editModel().typicalLocationId;
+      if (!this.editing() || !locationId) {
+        this.#locationSurfaces.set([]);
+        return;
+      }
+      void this.#loadSlotsForLocation(locationId);
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     await this.#loadSupport();
@@ -74,15 +117,38 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   }
 
   startEditing(): void {
+    this.editModel.set(itemEditModel(this.item()));
+    this.#committedLocationId = this.editModel().typicalLocationId;
     this.editing.set(true);
     this.announcement.set('');
+    this.slotClearedNotice.set('');
   }
 
   cancelEditing(): void {
     this.editModel.set(itemEditModel(this.item()));
+    this.#committedLocationId = this.editModel().typicalLocationId;
     this.cancelPhotoSelection();
     this.error.set('');
+    this.slotClearedNotice.set('');
     this.editing.set(false);
+  }
+
+  onTypicalLocationChange(event: Event): void {
+    const select = event.target instanceof HTMLSelectElement ? event.target : null;
+    if (!select) return;
+    const result = applyTypicalLocationSelection(
+      this.editModel(),
+      select.value,
+      this.#committedLocationId,
+    );
+    this.editModel.set(result.model);
+    this.#committedLocationId = result.model.typicalLocationId;
+    this.slotClearedNotice.set(result.slotClearedNotice ?? '');
+  }
+
+  unlinkPlacementSlot(): void {
+    this.editModel.update((model) => ({ ...model, placementSlotId: '' }));
+    this.slotClearedNotice.set('');
   }
 
   submitEdit(): void {
@@ -158,6 +224,36 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     }
   }
 
+  async #loadSlotsForLocation(locationId: string): Promise<void> {
+    this.loadingSlots.set(true);
+    try {
+      const listed = await this.#surfacesApi.list(locationId);
+      const details = await Promise.all(
+        listed.placementSurfaces.map(async (summary) => {
+          const response = await this.#surfacesApi.get(locationId, summary.id);
+          const surface = response.placementSurface;
+          if (!('slots' in surface)) {
+            return {
+              ...surface,
+              slots: [],
+              structuralDrawings: [],
+            } satisfies PlacementSurfaceDetail;
+          }
+          return surface;
+        }),
+      );
+      if (this.editModel().typicalLocationId === locationId) {
+        this.#locationSurfaces.set(details);
+      }
+    } catch {
+      if (this.editModel().typicalLocationId === locationId) {
+        this.#locationSurfaces.set([]);
+      }
+    } finally {
+      this.loadingSlots.set(false);
+    }
+  }
+
   async #save(): Promise<void> {
     this.saving.set(true);
     this.error.set('');
@@ -169,6 +265,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
       );
       this.itemUpdated.emit(response.item);
       this.announcement.set('Item updated.');
+      this.slotClearedNotice.set('');
       this.editing.set(false);
     } catch (error) {
       this.error.set(friendlyApiError(error, 'We could not update that Item.'));
