@@ -20,7 +20,8 @@
 }
 
 .owned-item-editor__form,
-.owned-item-editor__photos {
+.owned-item-editor__photos,
+.owned-item-editor__sharing {
   background: var(--card);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-md);
@@ -56,8 +57,34 @@
 }
 
 .owned-item-editor__form h2,
-.owned-item-editor__photos h2 {
+.owned-item-editor__photos h2,
+.owned-item-editor__sharing h3 {
   margin-block-start: 0;
+}
+
+.owned-item-editor__sharing {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.owned-item-editor__sharing-list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.owned-item-editor__sharing-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.owned-item-editor__sharing-row p {
+  margin: 0.15rem 0 0;
 }
 
 .owned-item-editor__textarea {

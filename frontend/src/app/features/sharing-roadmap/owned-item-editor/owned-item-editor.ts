@@ -16,13 +16,24 @@ import { ItemPhotosApi } from '../../../core/api/item-photos-api.service';
 import {
   Item,
   ItemPhoto,
+  ItemSharing,
   PlacementSurfaceDetail,
+  ShareReadiness,
   SharedItem,
+  SharingGroup,
   TypicalLocation,
 } from '../../../core/api/model';
 import { PlacementSurfacesApi } from '../../../core/api/placement-surfaces-api.service';
+import { SharingApi } from '../../../core/api/sharing-api.service';
 import { TypicalLocationsApi } from '../../../core/api/typical-locations-api.service';
-import { friendlyApiError, ITEM_PHOTO_ACCEPT, photoInputError } from '../functions';
+import {
+  canShareItem,
+  friendlyApiError,
+  isSharedWithGroup,
+  ITEM_PHOTO_ACCEPT,
+  photoInputError,
+  shareReadinessLabel,
+} from '../functions';
 import { OwnedItemSummary } from '../owned-item-summary/owned-item-summary';
 import {
   applyTypicalLocationSelection,
@@ -46,6 +57,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   readonly #photosApi = inject(ItemPhotosApi);
   readonly #locationsApi = inject(TypicalLocationsApi);
   readonly #surfacesApi = inject(PlacementSurfacesApi);
+  readonly #sharingApi = inject(SharingApi);
 
   readonly item = input.required<Item>();
   readonly sharedItem = input<SharedItem | null>(null);
@@ -81,6 +93,17 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   readonly photoError = signal('');
   readonly announcement = signal('');
   readonly slotClearedNotice = signal('');
+  readonly groups = signal<readonly SharingGroup[]>([]);
+  readonly itemSharing = signal<readonly ItemSharing[]>([]);
+  readonly shareReadiness = signal<ShareReadiness | null>(null);
+  readonly sharingBusyGroupId = signal<string | null>(null);
+  readonly sharingError = signal('');
+  readonly canShare = computed(() => canShareItem(this.shareReadiness()));
+  readonly shareReadinessMessage = computed(() => {
+    const readiness = this.shareReadiness();
+    if (!readiness) return '';
+    return shareReadinessLabel(readiness.missing);
+  });
   readonly #locationSurfaces = signal<readonly PlacementSurfaceDetail[]>([]);
   /**
    * Location whose Placement Slots are shown in the editor. Updated only when
@@ -163,6 +186,40 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.slotClearedNotice.set('');
   }
 
+  isSharedWith(groupId: string): boolean {
+    return isSharedWithGroup(this.itemSharing(), groupId);
+  }
+
+  async shareWithGroup(group: SharingGroup): Promise<void> {
+    if (this.sharingBusyGroupId() || !this.canShare() || this.isSharedWith(group.id)) return;
+    this.sharingBusyGroupId.set(group.id);
+    this.sharingError.set('');
+    try {
+      await this.#sharingApi.shareItem(this.item().id, group.id);
+      await this.#refreshSharing();
+      this.announcement.set(`Shared with ${group.name}.`);
+    } catch (error) {
+      this.sharingError.set(friendlyApiError(error, 'We could not share that Item.'));
+    } finally {
+      this.sharingBusyGroupId.set(null);
+    }
+  }
+
+  async unshareFromGroup(group: SharingGroup): Promise<void> {
+    if (this.sharingBusyGroupId() || !this.isSharedWith(group.id)) return;
+    this.sharingBusyGroupId.set(group.id);
+    this.sharingError.set('');
+    try {
+      await this.#sharingApi.unshareItem(this.item().id, group.id);
+      await this.#refreshSharing();
+      this.announcement.set(`Stopped sharing with ${group.name}.`);
+    } catch (error) {
+      this.sharingError.set(friendlyApiError(error, 'We could not stop sharing that Item.'));
+    } finally {
+      this.sharingBusyGroupId.set(null);
+    }
+  }
+
   submitEdit(): void {
     if (this.saving()) return;
     void submit(this.editForm, async () => this.#save());
@@ -221,18 +278,36 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   async #loadSupport(): Promise<void> {
     this.loadingSupport.set(true);
     this.error.set('');
+    this.sharingError.set('');
     try {
-      const [locations, photos] = await Promise.all([
+      const [locations, photos, groups, sharing] = await Promise.all([
         this.#locationsApi.list(),
         this.#photosApi.list(this.item().id),
+        this.#sharingApi.listGroups(),
+        this.#sharingApi.getItemSharing(this.item().id),
       ]);
       this.locations.set(locations.typicalLocations);
       this.photos.set(photos.itemPhotos);
       this.photosLoaded.set(true);
+      this.groups.set(groups.sharingGroups);
+      this.itemSharing.set(sharing.itemSharing);
+      this.shareReadiness.set(sharing.shareReadiness);
     } catch (error) {
       this.error.set(friendlyApiError(error, 'We could not load the Item editing options.'));
     } finally {
       this.loadingSupport.set(false);
+    }
+  }
+
+  async #refreshSharing(): Promise<void> {
+    try {
+      const sharing = await this.#sharingApi.getItemSharing(this.item().id);
+      this.itemSharing.set(sharing.itemSharing);
+      this.shareReadiness.set(sharing.shareReadiness);
+    } catch (error) {
+      this.sharingError.set(
+        friendlyApiError(error, 'We could not refresh Sharing Group visibility.'),
+      );
     }
   }
 
@@ -298,6 +373,8 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
       this.slotClearedNotice.set('');
       this.editing.set(false);
       this.#slotPickerLocationId.set('');
+      // Typical Location may have changed share readiness.
+      await this.#refreshSharing();
     } catch (error) {
       this.error.set(friendlyApiError(error, 'We could not update that Item.'));
     } finally {

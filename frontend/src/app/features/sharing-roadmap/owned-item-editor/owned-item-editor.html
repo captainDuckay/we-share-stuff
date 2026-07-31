@@ -219,4 +219,57 @@
       }
     </section>
   }
+
+  <section class="owned-item-editor__sharing" aria-labelledby="item-sharing-title">
+    <h3 id="item-sharing-title">Sharing Groups</h3>
+    <p class="sharing-page__meta">
+      Share this Item with groups you belong to. Members can then request to borrow it.
+    </p>
+    @if (sharingError()) {
+      <p class="sharing-page__error" role="alert">{{ sharingError() }}</p>
+    }
+    @if (loadingSupport()) {
+      <p role="status">Loading Sharing Groups…</p>
+    } @else if (groups().length === 0) {
+      <p class="sharing-page__meta">
+        You are not in any Sharing Groups yet. Create or join one from Sharing, then come back here.
+      </p>
+    } @else {
+      @if (!canShare()) {
+        <p class="owned-item-editor__notice" role="status">{{ shareReadinessMessage() }}</p>
+      }
+      <ul class="owned-item-editor__sharing-list">
+        @for (group of groups(); track group.id) {
+          <li class="owned-item-editor__sharing-row">
+            <div>
+              <strong>{{ group.name }}</strong>
+              <p class="sharing-page__meta">
+                {{ group.memberCount }} Members ·
+                {{ isSharedWith(group.id) ? 'Shared' : 'Not shared' }}
+              </p>
+            </div>
+            @if (isSharedWith(group.id)) {
+              <button
+                class="sharing-page__button"
+                type="button"
+                [disabled]="sharingBusyGroupId() === group.id"
+                (click)="unshareFromGroup(group)"
+              >
+                {{ sharingBusyGroupId() === group.id ? 'Updating…' : 'Stop sharing' }}
+              </button>
+            } @else {
+              <button
+                class="sharing-page__button"
+                type="button"
+                [disabled]="!canShare() || sharingBusyGroupId() === group.id"
+                (click)="shareWithGroup(group)"
+              >
+                {{ sharingBusyGroupId() === group.id ? 'Sharing…' : 'Share' }}
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
 </article>
