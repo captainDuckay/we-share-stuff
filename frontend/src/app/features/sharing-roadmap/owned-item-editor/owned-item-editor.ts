@@ -82,6 +82,11 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   readonly announcement = signal('');
   readonly slotClearedNotice = signal('');
   readonly #locationSurfaces = signal<readonly PlacementSurfaceDetail[]>([]);
+  /**
+   * Location whose Placement Slots are shown in the editor. Updated only when
+   * entering edit mode or changing Typical Location — not on every form keystroke.
+   */
+  readonly #slotPickerLocationId = signal('');
   readonly slotOptions = computed(() => {
     const linked = this.item().placementSlot;
     const ensureSlot =
@@ -96,12 +101,16 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   });
   /** Location id before the latest location control change (for slot auto-clear). */
   #committedLocationId = '';
+  /** In-memory cache so re-open / re-select does not flash network round-trips. */
+  readonly #surfacesByLocationId = new Map<string, readonly PlacementSurfaceDetail[]>();
+  #slotsLoadGeneration = 0;
 
   constructor() {
     effect(() => {
-      const locationId = this.editModel().typicalLocationId;
-      if (!this.editing() || !locationId) {
+      const locationId = this.#slotPickerLocationId();
+      if (!locationId) {
         this.#locationSurfaces.set([]);
+        this.loadingSlots.set(false);
         return;
       }
       void this.#loadSlotsForLocation(locationId);
@@ -122,6 +131,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.editing.set(true);
     this.announcement.set('');
     this.slotClearedNotice.set('');
+    this.#slotPickerLocationId.set(this.editModel().typicalLocationId);
   }
 
   cancelEditing(): void {
@@ -131,6 +141,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.error.set('');
     this.slotClearedNotice.set('');
     this.editing.set(false);
+    this.#slotPickerLocationId.set('');
   }
 
   onTypicalLocationChange(event: Event): void {
@@ -144,6 +155,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.editModel.set(result.model);
     this.#committedLocationId = result.model.typicalLocationId;
     this.slotClearedNotice.set(result.slotClearedNotice ?? '');
+    this.#slotPickerLocationId.set(result.model.typicalLocationId);
   }
 
   unlinkPlacementSlot(): void {
@@ -225,6 +237,14 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   }
 
   async #loadSlotsForLocation(locationId: string): Promise<void> {
+    const cached = this.#surfacesByLocationId.get(locationId);
+    if (cached) {
+      this.#locationSurfaces.set(cached);
+      this.loadingSlots.set(false);
+      return;
+    }
+
+    const generation = ++this.#slotsLoadGeneration;
     this.loadingSlots.set(true);
     try {
       const listed = await this.#surfacesApi.list(locationId);
@@ -242,15 +262,25 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
           return surface;
         }),
       );
-      if (this.editModel().typicalLocationId === locationId) {
-        this.#locationSurfaces.set(details);
+      if (
+        generation !== this.#slotsLoadGeneration ||
+        this.#slotPickerLocationId() !== locationId
+      ) {
+        return;
       }
+      this.#surfacesByLocationId.set(locationId, details);
+      this.#locationSurfaces.set(details);
     } catch {
-      if (this.editModel().typicalLocationId === locationId) {
+      if (
+        generation === this.#slotsLoadGeneration &&
+        this.#slotPickerLocationId() === locationId
+      ) {
         this.#locationSurfaces.set([]);
       }
     } finally {
-      this.loadingSlots.set(false);
+      if (generation === this.#slotsLoadGeneration) {
+        this.loadingSlots.set(false);
+      }
     }
   }
 
@@ -267,6 +297,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
       this.announcement.set('Item updated.');
       this.slotClearedNotice.set('');
       this.editing.set(false);
+      this.#slotPickerLocationId.set('');
     } catch (error) {
       this.error.set(friendlyApiError(error, 'We could not update that Item.'));
     } finally {
