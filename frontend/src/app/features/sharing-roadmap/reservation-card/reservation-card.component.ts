@@ -1,13 +1,18 @@
 import { Component, input, output } from '@angular/core';
 import { Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
-import { formatLocationLocalRange } from '../functions';
+import {
+  formatLocationLocalRange,
+  typicalPlacementLabel,
+  visibleStructuredPlacement,
+} from '../functions';
+import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapshot-diagram';
 
 export type ReservationActionMode = 'requester' | 'owner';
 
 @Component({
   selector: 'app-reservation-card',
-  imports: [UserAvatar],
+  imports: [PlacementSnapshotDiagram, UserAvatar],
   templateUrl: './reservation-card.component.html',
   styleUrl: '../sharing-page/sharing-page.component.css',
 })
@@ -29,6 +34,9 @@ export class ReservationCardComponent {
   readonly approveProposal = output<ReservationChangeProposal>();
   readonly rejectProposal = output<ReservationChangeProposal>();
   readonly withdrawProposal = output<ReservationChangeProposal>();
+
+  placementLabel = typicalPlacementLabel;
+  placementStructured = visibleStructuredPlacement;
 
   range(reservation: Reservation): string {
     return formatLocationLocalRange(

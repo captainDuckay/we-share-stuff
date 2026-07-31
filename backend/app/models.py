@@ -497,6 +497,11 @@ class Reservation(Base):
     typical_placement_snapshot: Mapped[str | None] = mapped_column(
         String(2000), nullable=True
     )
+    # Frozen structured payload (Slot-linked only): parent Surface geometry at accept.
+    # Free-text / empty accepts leave this null. Shape is app-owned JSON, not FKs.
+    typical_placement_structured_snapshot: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

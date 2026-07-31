@@ -34,6 +34,6 @@ export const ownedSharedItemView = (
     itemPhotos: photos,
     categories: item.categories,
     typicalLocation: item.typicalLocation ?? sharedItem.typicalLocation,
-    typicalPlacement: { visible: true, value: placementValue },
+    typicalPlacement: { visible: true, value: placementValue, structured: null },
   };
 };

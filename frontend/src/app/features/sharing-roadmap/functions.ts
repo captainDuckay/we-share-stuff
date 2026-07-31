@@ -271,8 +271,33 @@ export const sharedItemAvailabilityLabel = (item: SharedItem, nowMs: number): st
   return 'Available now';
 };
 
+/**
+ * Required text path for a structured placement snapshot: Surface → Slot (+ note).
+ * Always available without relying only on the diagram.
+ */
+export const structuredPlacementTextPath = (
+  structured: Pick<
+    NonNullable<TypicalPlacementVisibility['structured']>,
+    'surfaceName' | 'slotLabel' | 'note'
+  >,
+): string => {
+  const path = `${structured.surfaceName} → ${structured.slotLabel}`;
+  const note = structured.note?.trim();
+  return note ? `${path} (${note})` : path;
+};
+
+/** Structured snapshot when revealed to the borrower; otherwise null (no diagram chrome). */
+export const visibleStructuredPlacement = (
+  placement: TypicalPlacementVisibility,
+): NonNullable<TypicalPlacementVisibility['structured']> | null =>
+  placement.visible ? placement.structured : null;
+
+/** Empty / free-text / structured borrower placement copy (no diagram chrome). */
 export const typicalPlacementLabel = (placement: TypicalPlacementVisibility): string => {
   if (!placement.visible) return 'Typical Placement is hidden until your Reservation is accepted.';
+  if (placement.structured) {
+    return `Typical Placement: ${structuredPlacementTextPath(placement.structured)}`;
+  }
   return placement.value
     ? `Typical Placement: ${placement.value}`
     : 'No Typical Placement has been noted.';

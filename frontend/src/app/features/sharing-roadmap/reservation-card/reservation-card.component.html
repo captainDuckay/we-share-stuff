@@ -5,6 +5,10 @@
   {{ personName() }}
 </p>
 <p>{{ range(reservation()) }}</p>
+<p>{{ placementLabel(reservation().item.typicalPlacement) }}</p>
+@if (placementStructured(reservation().item.typicalPlacement); as structured) {
+  <app-placement-snapshot-diagram [snapshot]="structured" />
+}
 @if (pendingProposalFromOther(); as proposal) {
   <button class="sharing-page__button" type="button" (click)="approveProposal.emit(proposal)">
     Accept change

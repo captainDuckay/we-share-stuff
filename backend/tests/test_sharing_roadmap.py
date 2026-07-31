@@ -296,7 +296,11 @@ def test_sharing_groups_invitations_and_binary_shared_item_visibility(
     shared_item = shared_items.json()["sharedItems"][0]
     assert shared_item["id"] == item["id"]
     assert shared_item["typicalLocation"]["id"] == location["id"]
-    assert shared_item["typicalPlacement"] == {"visible": False, "value": None}
+    assert shared_item["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+        "structured": None,
+    }
     assert shared_item["itemPhotos"][0]["id"] == photo["id"]
     assert "visual" not in shared_item
     assert client.get(photo["url"]).status_code == 200
@@ -350,7 +354,11 @@ def test_reservation_owner_approval_conflict_and_placement_disclosure(
     assert reservation["startAt"] == "2099-08-01T08:00:00Z"
     assert reservation["item"]["photoUrl"] == photo["url"]
     assert "visual" not in reservation["item"]
-    assert reservation["item"]["typicalPlacement"] == {"visible": False, "value": None}
+    assert reservation["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+        "structured": None,
+    }
 
     owner_headers = use_session(client, owner)
     accepted = client.post(
@@ -361,6 +369,7 @@ def test_reservation_owner_approval_conflict_and_placement_disclosure(
     assert accepted.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
 
     member_headers = use_session(client, member)
@@ -369,6 +378,7 @@ def test_reservation_owner_approval_conflict_and_placement_disclosure(
     assert visible.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
     conflicting = client.post(
         f"/api/sharing-groups/{group_id}/shared-items/{item['id']}/reservations",
@@ -506,6 +516,7 @@ def test_pending_reservation_declined_when_requester_loses_group_membership(
     assert closed.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": False,
         "value": None,
+        "structured": None,
     }
 
     owner_headers = use_session(client, owner)
@@ -630,7 +641,11 @@ def test_withdraw_and_cancel_reservation_lifecycle(client: TestClient) -> None:
     assert cancel.status_code == 200
     cancelled = cancel.json()["reservation"]
     assert cancelled["status"] == "cancelled"
-    assert cancelled["item"]["typicalPlacement"] == {"visible": False, "value": None}
+    assert cancelled["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+        "structured": None,
+    }
 
     replacement = request_pending_reservation(
         client,
@@ -720,6 +735,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert pending.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": False,
         "value": None,
+        "structured": None,
     }
     shared_pending = client.get(
         f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
@@ -728,6 +744,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert shared_pending.json()["sharedItem"]["typicalPlacement"] == {
         "visible": False,
         "value": None,
+        "structured": None,
     }
 
     owner_headers = use_session(client, owner)
@@ -739,6 +756,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert accepted.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
 
     member_headers = use_session(client, member)
@@ -747,6 +765,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert frozen.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
     shared_accepted = client.get(
         f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
@@ -754,6 +773,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert shared_accepted.json()["sharedItem"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
 
     # Owner edits live free-text after accept — borrower snapshot must not rewrite
@@ -771,6 +791,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert still_frozen.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
     shared_still_frozen = client.get(
         f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
@@ -778,6 +799,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert shared_still_frozen.json()["sharedItem"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
 
     # Owner viewing the same reservation still sees live placement
@@ -786,6 +808,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert owner_view.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Red shelf",
+        "structured": None,
     }
 
     # Approving a date-time-only Change Proposal must not re-snapshot placement
@@ -816,6 +839,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert after_proposal.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Blue bin",
+        "structured": None,
     }
     assert after_proposal.json()["reservation"]["startLocal"] == "2099-12-02T10:00:00"
 
@@ -827,6 +851,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert cancel.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": False,
         "value": None,
+        "structured": None,
     }
     shared_cancelled = client.get(
         f"/api/sharing-groups/{group_id}/shared-items/{item['id']}"
@@ -834,6 +859,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert shared_cancelled.json()["sharedItem"]["typicalPlacement"] == {
         "visible": False,
         "value": None,
+        "structured": None,
     }
 
     # Re-accept a *new* pending Reservation captures a fresh snapshot from live text
@@ -859,6 +885,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert re_pending.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": False,
         "value": None,
+        "structured": None,
     }
 
     owner_headers = use_session(client, owner)
@@ -872,6 +899,7 @@ def test_typical_placement_snapshot_freeze_cancel_reaccept_and_change_proposal(
     assert re_frozen.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": "Garage loft",
+        "structured": None,
     }
 
 
@@ -913,6 +941,7 @@ def test_typical_placement_snapshot_freezes_empty_when_none_set(
     assert frozen.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": None,
+        "structured": None,
     }
 
     # Live owner edit after empty freeze still must not leak to borrower
@@ -929,9 +958,381 @@ def test_typical_placement_snapshot_freezes_empty_when_none_set(
     assert still_empty.json()["reservation"]["item"]["typicalPlacement"] == {
         "visible": True,
         "value": None,
+        "structured": None,
     }
     shared = client.get(f"/api/sharing-groups/{group_id}/shared-items/{item['id']}")
     assert shared.json()["sharedItem"]["typicalPlacement"] == {
         "visible": True,
         "value": None,
+        "structured": None,
     }
+
+
+def test_structured_placement_snapshot_freeze_and_owner_edits_do_not_rewrite(
+    client: TestClient,
+) -> None:
+    """Slot-linked Item freezes structured payload; owner live edits do not rewrite.
+
+    Covers issue #15: Surface name, Slot label, optional note, target + other slots
+    on parent Surface only, Structural Drawings; free-text/empty paths stay string-only.
+    """
+    owner = register_user(client, "structured-snap-owner@example.com")
+    member = register_user(client, "structured-snap-member@example.com")
+    group_id = create_group_and_invite_member(
+        client, owner, member, "structured-snap-member@example.com"
+    )
+
+    owner_headers = use_session(client, owner)
+    location = create_location(client, owner_headers)
+
+    surface = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces",
+        headers=owner_headers,
+        json={"name": "Garage wall"},
+    ).json()["placementSurface"]
+    other_surface = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces",
+        headers=owner_headers,
+        json={"name": "Shed wall"},
+    ).json()["placementSurface"]
+
+    target_slot = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces/{surface['id']}/slots",
+        headers=owner_headers,
+        json={
+            "label": "Shelf A",
+            "x": 10,
+            "y": 20,
+            "width": 400,
+            "height": 300,
+        },
+    ).json()["placementSlot"]
+    other_slot = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces/{surface['id']}/slots",
+        headers=owner_headers,
+        json={
+            "label": "Shelf B",
+            "x": 500,
+            "y": 20,
+            "width": 200,
+            "height": 150,
+        },
+    ).json()["placementSlot"]
+    # Unrelated surface — must never appear in borrower snapshot
+    client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces/{other_surface['id']}/slots",
+        headers=owner_headers,
+        json={
+            "label": "Shed bin",
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100,
+        },
+    )
+
+    structure = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces"
+        f"/{surface['id']}/structural-drawings",
+        headers=owner_headers,
+        json={
+            "kind": "rect",
+            "x": 0,
+            "y": 0,
+            "width": 800,
+            "height": 50,
+        },
+    ).json()["structuralDrawing"]
+    other_structure = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces"
+        f"/{other_surface['id']}/structural-drawings",
+        headers=owner_headers,
+        json={
+            "kind": "rect",
+            "x": 0,
+            "y": 0,
+            "width": 50,
+            "height": 50,
+        },
+    ).json()["structuralDrawing"]
+
+    item = client.post(
+        "/api/items",
+        headers=owner_headers,
+        json={
+            "name": "Drill",
+            "description": None,
+            "typicalLocationId": location["id"],
+            "typicalPlacement": " behind paint ",
+            "placementSlotId": target_slot["id"],
+        },
+    ).json()["item"]
+    share = client.post(
+        f"/api/items/{item['id']}/sharing-groups/{group_id}", headers=owner_headers
+    )
+    assert share.status_code == 201
+
+    reservation = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-11-01T10:00:00",
+        "2099-11-01T12:00:00",
+    )
+
+    # Pre-accept: no placement reveal
+    use_session(client, member)
+    pending = client.get(f"/api/reservations/{reservation['id']}")
+    assert pending.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+        "structured": None,
+    }
+
+    owner_headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation['id']}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+
+    use_session(client, member)
+    frozen = client.get(f"/api/reservations/{reservation['id']}")
+    placement = frozen.json()["reservation"]["item"]["typicalPlacement"]
+    assert placement["visible"] is True
+    assert placement["value"] == "behind paint"
+    structured = placement["structured"]
+    assert structured is not None
+    assert structured["surfaceName"] == "Garage wall"
+    assert structured["slotLabel"] == "Shelf A"
+    assert structured["note"] == "behind paint"
+    assert structured["targetSlot"] == {
+        "id": target_slot["id"],
+        "label": "Shelf A",
+        "x": 10.0,
+        "y": 20.0,
+        "width": 400.0,
+        "height": 300.0,
+    }
+    other_labels = {slot["label"] for slot in structured["otherSlots"]}
+    assert other_labels == {"Shelf B"}
+    assert {slot["id"] for slot in structured["otherSlots"]} == {other_slot["id"]}
+    assert "Shed bin" not in other_labels
+    drawing_ids = {d["id"] for d in structured["structuralDrawings"]}
+    assert structure["id"] in drawing_ids
+    assert other_structure["id"] not in drawing_ids
+    assert len(structured["structuralDrawings"]) == 1
+    assert structured["structuralDrawings"][0]["kind"] == "rect"
+    assert structured["structuralDrawings"][0]["width"] == 800.0
+
+    shared = client.get(f"/api/sharing-groups/{group_id}/shared-items/{item['id']}")
+    assert shared.json()["sharedItem"]["typicalPlacement"]["structured"][
+        "slotLabel"
+    ] == "Shelf A"
+
+    # Owner renames Surface/Slot, moves geometry, edits structure, changes note —
+    # borrower snapshot must not rewrite
+    owner_headers = use_session(client, owner)
+    client.patch(
+        f"/api/typical-locations/{location['id']}/placement-surfaces/{surface['id']}",
+        headers=owner_headers,
+        json={"name": "Renamed wall"},
+    )
+    client.patch(
+        f"/api/typical-locations/{location['id']}/placement-surfaces"
+        f"/{surface['id']}/slots/{target_slot['id']}",
+        headers=owner_headers,
+        json={"label": "Renamed shelf", "x": 999, "y": 999, "width": 10, "height": 10},
+    )
+    client.patch(
+        f"/api/typical-locations/{location['id']}/placement-surfaces"
+        f"/{surface['id']}/structural-drawings/{structure['id']}",
+        headers=owner_headers,
+        json={"width": 1, "height": 1},
+    )
+    client.patch(
+        f"/api/items/{item['id']}",
+        headers=owner_headers,
+        json={"typicalPlacement": "new note"},
+    )
+
+    use_session(client, member)
+    still = client.get(f"/api/reservations/{reservation['id']}")
+    still_structured = still.json()["reservation"]["item"]["typicalPlacement"][
+        "structured"
+    ]
+    assert still_structured["surfaceName"] == "Garage wall"
+    assert still_structured["slotLabel"] == "Shelf A"
+    assert still_structured["note"] == "behind paint"
+    assert still_structured["targetSlot"]["x"] == 10.0
+    assert still_structured["targetSlot"]["width"] == 400.0
+    assert still_structured["structuralDrawings"][0]["width"] == 800.0
+    assert still.json()["reservation"]["item"]["typicalPlacement"]["value"] == (
+        "behind paint"
+    )
+
+    # Cancel hides; re-accept re-snapshots from current live structured state
+    member_headers = use_session(client, member)
+    cancel = client.post(
+        f"/api/reservations/{reservation['id']}/cancel", headers=member_headers
+    )
+    assert cancel.status_code == 200
+    assert cancel.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": False,
+        "value": None,
+        "structured": None,
+    }
+
+    re_request = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-11-10T10:00:00",
+        "2099-11-10T12:00:00",
+    )
+    owner_headers = use_session(client, owner)
+    re_accept = client.post(
+        f"/api/reservations/{re_request['id']}/accept", headers=owner_headers
+    )
+    assert re_accept.status_code == 200
+
+    use_session(client, member)
+    re_frozen = client.get(f"/api/reservations/{re_request['id']}")
+    re_placement = re_frozen.json()["reservation"]["item"]["typicalPlacement"]
+    assert re_placement["value"] == "new note"
+    assert re_placement["structured"]["surfaceName"] == "Renamed wall"
+    assert re_placement["structured"]["slotLabel"] == "Renamed shelf"
+    assert re_placement["structured"]["note"] == "new note"
+    assert re_placement["structured"]["targetSlot"]["x"] == 999.0
+    assert re_placement["structured"]["structuralDrawings"][0]["width"] == 1.0
+
+
+def test_accept_free_text_linked_item_without_slot_does_not_invent_structure(
+    client: TestClient,
+) -> None:
+    """Free-text-only Items still freeze string only — no invented structure."""
+    owner, member, group_id, item = shared_reservation_fixture(
+        client,
+        "free-text-no-struct-owner@example.com",
+        "free-text-no-struct-member@example.com",
+    )
+    reservation = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-11-20T10:00:00",
+        "2099-11-20T12:00:00",
+    )
+    owner_headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation['id']}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+
+    use_session(client, member)
+    frozen = client.get(f"/api/reservations/{reservation['id']}")
+    assert frozen.json()["reservation"]["item"]["typicalPlacement"] == {
+        "visible": True,
+        "value": "Blue bin",
+        "structured": None,
+    }
+
+
+def test_structured_placement_snapshot_survives_date_time_change_proposal(
+    client: TestClient,
+) -> None:
+    """Date-time-only Change Proposal keeps the frozen structured snapshot."""
+    owner = register_user(client, "struct-proposal-owner@example.com")
+    member = register_user(client, "struct-proposal-member@example.com")
+    group_id = create_group_and_invite_member(
+        client, owner, member, "struct-proposal-member@example.com"
+    )
+    owner_headers = use_session(client, owner)
+    location = create_location(client, owner_headers)
+    surface = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces",
+        headers=owner_headers,
+        json={"name": "Basement wall"},
+    ).json()["placementSurface"]
+    slot = client.post(
+        f"/api/typical-locations/{location['id']}/placement-surfaces/{surface['id']}/slots",
+        headers=owner_headers,
+        json={"label": "Hook 1", "x": 5, "y": 5, "width": 100, "height": 80},
+    ).json()["placementSlot"]
+    item = client.post(
+        "/api/items",
+        headers=owner_headers,
+        json={
+            "name": "Saw",
+            "description": None,
+            "typicalLocationId": location["id"],
+            "typicalPlacement": "top hook",
+            "placementSlotId": slot["id"],
+        },
+    ).json()["item"]
+    assert (
+        client.post(
+            f"/api/items/{item['id']}/sharing-groups/{group_id}", headers=owner_headers
+        ).status_code
+        == 201
+    )
+    reservation = request_pending_reservation(
+        client,
+        member,
+        group_id,
+        item["id"],
+        "2099-11-25T10:00:00",
+        "2099-11-25T12:00:00",
+    )
+    owner_headers = use_session(client, owner)
+    assert (
+        client.post(
+            f"/api/reservations/{reservation['id']}/accept", headers=owner_headers
+        ).status_code
+        == 200
+    )
+
+    member_headers = use_session(client, member)
+    before = client.get(f"/api/reservations/{reservation['id']}")
+    frozen_structured = before.json()["reservation"]["item"]["typicalPlacement"][
+        "structured"
+    ]
+    assert frozen_structured["slotLabel"] == "Hook 1"
+
+    # Live rename after accept
+    owner_headers = use_session(client, owner)
+    client.patch(
+        f"/api/typical-locations/{location['id']}/placement-surfaces"
+        f"/{surface['id']}/slots/{slot['id']}",
+        headers=owner_headers,
+        json={"label": "Hook renamed"},
+    )
+
+    member_headers = use_session(client, member)
+    proposal = client.post(
+        f"/api/reservations/{reservation['id']}/change-proposals",
+        headers=member_headers,
+        json={
+            "startLocal": "2099-11-26T10:00:00",
+            "endLocal": "2099-11-26T12:00:00",
+        },
+    )
+    assert proposal.status_code == 201
+    change_proposal_id = proposal.json()["changeProposal"]["id"]
+
+    owner_headers = use_session(client, owner)
+    approve = client.post(
+        f"/api/reservation-change-proposals/{change_proposal_id}/approve",
+        headers=owner_headers,
+    )
+    assert approve.status_code == 200
+
+    member_headers = use_session(client, member)
+    after = client.get(f"/api/reservations/{reservation['id']}")
+    assert after.json()["reservation"]["startLocal"] == "2099-11-26T10:00:00"
+    still = after.json()["reservation"]["item"]["typicalPlacement"]["structured"]
+    assert still["slotLabel"] == "Hook 1"
+    assert still["surfaceName"] == "Basement wall"
+    assert still["note"] == "top hook"

@@ -358,6 +358,9 @@
                 <p>Status: {{ reservation.status }}</p>
                 <p>{{ reservationRange(reservation) }}</p>
                 <p>{{ placementLabel(reservation.item.typicalPlacement) }}</p>
+                @if (placementStructured(reservation.item.typicalPlacement); as structured) {
+                  <app-placement-snapshot-diagram [snapshot]="structured" />
+                }
                 @if (reservation.conflictsWithAcceptedReservation) {
                   <p class="sharing-page__error">
                     This Reservation Request now conflicts with an Accepted Reservation. Propose new
@@ -462,6 +465,9 @@
                 </p>
                 <p>{{ reservationRange(reservation) }}</p>
                 <p>{{ placementLabel(reservation.item.typicalPlacement) }}</p>
+                @if (placementStructured(reservation.item.typicalPlacement); as structured) {
+                  <app-placement-snapshot-diagram [snapshot]="structured" />
+                }
                 @if (reservation.conflictsWithAcceptedReservation) {
                   <p class="sharing-page__error">
                     This Reservation Request now conflicts with an Accepted Reservation. Propose new

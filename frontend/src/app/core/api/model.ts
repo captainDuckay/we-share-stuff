@@ -114,9 +114,46 @@ export interface ReservationRange {
   readonly timezone: string;
 }
 
+/** Slot geometry frozen into a borrower placement snapshot. */
+export interface FrozenPlacementSlotGeometry {
+  readonly id: string;
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Structural Drawing geometry frozen into a borrower placement snapshot. */
+export interface FrozenStructuralDrawing {
+  readonly id: string;
+  readonly kind: StructuralDrawingKind;
+  readonly x: number | null;
+  readonly y: number | null;
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly points: readonly SketchPoint[] | null;
+}
+
+/**
+ * Structured Typical Placement frozen at Reservation accept (Slot-linked only).
+ * Parent Surface only — target Slot, other slots for orientation, Structural Drawings.
+ */
+export interface StructuredPlacementSnapshot {
+  readonly surfaceName: string;
+  readonly slotLabel: string;
+  readonly note: string | null;
+  readonly targetSlot: FrozenPlacementSlotGeometry;
+  readonly otherSlots: readonly FrozenPlacementSlotGeometry[];
+  readonly structuralDrawings: readonly FrozenStructuralDrawing[];
+}
+
 export interface TypicalPlacementVisibility {
   readonly visible: boolean;
+  /** Free-text path, or the optional Item note when structured. */
   readonly value: string | null;
+  /** Present only for Slot-linked freezes; null for free-text/empty/hidden. */
+  readonly structured: StructuredPlacementSnapshot | null;
 }
 
 export interface SharedItemReservationState {

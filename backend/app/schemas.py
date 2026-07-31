@@ -457,9 +457,59 @@ class ReservationRange(AliasModel):
     timezone: str
 
 
+class FrozenPlacementSlotGeometry(AliasModel):
+    """Slot geometry frozen into a borrower placement snapshot."""
+
+    id: UUID
+    label: str
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class FrozenSketchPoint(AliasModel):
+    x: float
+    y: float
+
+
+class FrozenStructuralDrawing(AliasModel):
+    """Structural Drawing geometry frozen into a borrower placement snapshot."""
+
+    id: UUID
+    kind: Literal["rect", "polyline"]
+    x: float | None = None
+    y: float | None = None
+    width: float | None = None
+    height: float | None = None
+    points: list[FrozenSketchPoint] | None = None
+
+
+class StructuredPlacementSnapshot(AliasModel):
+    """Read-only structured Typical Placement frozen at Reservation accept.
+
+    Parent Surface only: target Slot, other slots for orientation, and
+    Structural Drawings. No co-located Items and no unrelated Surfaces.
+    """
+
+    surface_name: str = Field(serialization_alias="surfaceName")
+    slot_label: str = Field(serialization_alias="slotLabel")
+    note: str | None = None
+    target_slot: FrozenPlacementSlotGeometry = Field(
+        serialization_alias="targetSlot"
+    )
+    other_slots: list[FrozenPlacementSlotGeometry] = Field(
+        default_factory=list, serialization_alias="otherSlots"
+    )
+    structural_drawings: list[FrozenStructuralDrawing] = Field(
+        default_factory=list, serialization_alias="structuralDrawings"
+    )
+
+
 class TypicalPlacementVisibility(AliasModel):
     visible: bool
     value: str | None
+    structured: StructuredPlacementSnapshot | None = None
 
 
 class SharedItemReservationState(AliasModel):

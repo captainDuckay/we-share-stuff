@@ -1,0 +1,104 @@
+<div #host class="placement-snapshot-diagram">
+  <div class="placement-snapshot-diagram__toolbar">
+    <button type="button" class="placement-snapshot-diagram__fit" (click)="fitSurface()">
+      Fit surface
+    </button>
+    <span class="placement-snapshot-diagram__hint">Pan and zoom only · read-only</span>
+  </div>
+  <svg
+    #svg
+    class="placement-snapshot-diagram__canvas"
+    [attr.viewBox]="viewBox()"
+    preserveAspectRatio="xMidYMid meet"
+    role="img"
+    [attr.aria-label]="
+      'Placement Surface ' +
+      scene().name +
+      ', target slot ' +
+      snapshot().slotLabel
+    "
+    (wheel)="onWheel($event)"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp($event)"
+    (pointercancel)="onPointerUp($event)"
+    (contextmenu)="$event.preventDefault()"
+  >
+    <defs>
+      <pattern [attr.id]="gridPatternId()" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path
+          d="M 40 0 L 0 0 0 40"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="0.5"
+          opacity="0.25"
+        />
+      </pattern>
+    </defs>
+
+    <rect
+      class="placement-snapshot-diagram__grid"
+      [attr.x]="camX() - camW()"
+      [attr.y]="camY() - camH()"
+      [attr.width]="camW() * 3"
+      [attr.height]="camH() * 3"
+      [attr.fill]="'url(#' + gridPatternId() + ')'"
+    />
+
+    @if (contentBounds(); as bounds) {
+      @let pad = boundsPad(bounds);
+      <rect
+        class="placement-snapshot-diagram__content-hint"
+        [attr.x]="pad.x"
+        [attr.y]="pad.y"
+        [attr.width]="pad.width"
+        [attr.height]="pad.height"
+        rx="6"
+      />
+    }
+
+    <g class="placement-snapshot-diagram__structure" aria-hidden="true">
+      @for (shape of scene().structures; track shape.id) {
+        @if (shape.kind === 'structure-rect') {
+          <rect
+            class="placement-snapshot-diagram__struct-rect"
+            [attr.x]="shape.x"
+            [attr.y]="shape.y"
+            [attr.width]="shape.width"
+            [attr.height]="shape.height"
+          />
+        } @else {
+          <polyline
+            class="placement-snapshot-diagram__struct-line"
+            [attr.points]="linePoints(shape.points)"
+          />
+        }
+      }
+    </g>
+
+    <g class="placement-snapshot-diagram__slots">
+      @for (slot of scene().slots; track slot.id) {
+        <g
+          class="placement-snapshot-diagram__slot"
+          [class.placement-snapshot-diagram__slot--target]="slot.id === targetSlotId()"
+          [class.placement-snapshot-diagram__slot--quiet]="slot.id !== targetSlotId()"
+        >
+          <rect
+            [attr.x]="slot.x"
+            [attr.y]="slot.y"
+            [attr.width]="slot.width"
+            [attr.height]="slot.height"
+          />
+          <text
+            [attr.x]="slot.x + slot.width / 2"
+            [attr.y]="slot.y + slot.height / 2"
+            text-anchor="middle"
+            dominant-baseline="middle"
+          >
+            {{ slot.label }}
+          </text>
+        </g>
+      }
+    </g>
+  </svg>
+</div>
