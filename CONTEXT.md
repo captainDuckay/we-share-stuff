@@ -85,7 +85,7 @@ A proposed change to a Reservation Request's date-time range that must be approv
 _Avoid_: Counterproposal, edit, unilateral change
 
 **Accepted Reservation**:
-A Reservation Request in the accepted state. Acceptance reveals the Shared Item's Typical Placement to the borrowing User and blocks conflicting Reservation Requests from being accepted unless their requested time changes. If an Accepted Reservation is cancelled, it no longer blocks conflicts and the Typical Placement is hidden again from the borrowing User.
+A Reservation Request in the accepted state. Acceptance freezes a snapshot of the Shared Item's Typical Placement for the borrowing User and blocks conflicting Reservation Requests from being accepted unless their requested time changes. The owning User's live Typical Placement and Placement Surfaces may change without rewriting that snapshot. If an Accepted Reservation is cancelled, it no longer blocks conflicts and the placement snapshot is hidden again from the borrowing User. A later re-accept captures a fresh snapshot; a Reservation Change Proposal that only changes the date-time range keeps the existing snapshot.
 _Avoid_: Confirmed booking, paid reservation
 
 **Reservation**:

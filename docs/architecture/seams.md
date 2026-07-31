@@ -75,7 +75,7 @@ Typical Placement is either:
 - a link to a Placement Slot (plus optional free-text note), when the owning User has linked the Item; or
 - free text only, when the Item is not linked to a slot (including when Placement Surfaces exist on the Location but this Item is not linked).
 
-Typical Placement is optional and encouraged, not required. It is hidden from other Users until a Reservation is accepted.
+Typical Placement is optional and encouraged, not required. It is hidden from other Users until a Reservation is accepted. On acceptance, the borrowing User receives a **frozen snapshot** of Typical Placement as of that moment; the owning User's live inventory and Surfaces stay editable without rewriting the borrower's directions.
 
 ### Placement Surface and Placement Slot
 
@@ -115,7 +115,14 @@ Only the owning User of the Typical Location edits Surfaces, Slots, and Structur
 
 After Reservation acceptance, the borrowing User may see the Item's Placement Slot plus its parent Placement Surface—not the owner's full multi-surface atlas. Unrelated Surfaces and the editor remain private.
 
-Hard delete of a Slot or Surface is blocked while any Item still references a Slot on it (reassign first). Rename/move/resize stays live for the owner; accepted borrowers keep a readable placement snapshot (at least label and Surface name).
+**Placement snapshot at acceptance** (product level; presentation of the reveal is a separate decision):
+
+- **Freeze at accept** for the life of that Accepted Reservation; owner inventory stays live.
+- **Structured** (Slot-linked): Surface name, Slot label, optional Item free-text note, Slot geometry (mm rect), Structural Drawings on that parent Surface only; optional preferred dimensions when already present; other Surfaces and co-located Items out. Internal ids may be stored; borrower findability uses frozen labels.
+- **Free-text-only**: freeze that string the same way. **Empty**: freeze empty (do not invent structure).
+- **Lifecycle:** cancel stops reveal; re-accept captures a fresh snapshot; Reservation Change Proposal (date-time only) keeps the existing snapshot; owner mid-accept edits do not rewrite it.
+
+Hard delete of a Slot or Surface is blocked while any Item still references a Slot on it (reassign first). Rename/move/resize stays live for the owner; accepted borrowers keep their frozen placement snapshot.
 
 Avoid naming these concepts as current location, geo-location, address, warehouse map, or live tracking in domain language.
 
@@ -216,15 +223,17 @@ An Accepted Reservation is a Reservation Request in the `accepted` state.
 Accepted Reservations:
 
 - block conflicting Reservation Requests from being accepted;
-- reveal Typical Placement to the borrowing User;
+- freeze and reveal a snapshot of Typical Placement to the borrowing User (structured Slot payload, free text, or empty—see placement snapshot above);
 - remain the same record as the original Reservation Request;
 - do not introduce pickup, return, completion, or current-borrowing workflow yet.
 
 If an Accepted Reservation is cancelled:
 
 - it no longer blocks conflicts;
-- it no longer reveals Typical Placement to the borrowing User;
+- it no longer reveals the placement snapshot to the borrowing User;
 - it does not become completed or returned.
+
+A later re-accept captures a fresh snapshot. A Reservation Change Proposal that only changes the date-time range does not re-snapshot placement.
 
 Current, past, and upcoming borrowing labels should be derived from the accepted date-time range, not from extra lifecycle statuses.
 
