@@ -263,6 +263,105 @@ export interface ApiProblem {
   readonly errors?: Readonly<Record<string, string>>;
 }
 
+export interface PlacementSurfaceSummary {
+  readonly id: string;
+  readonly typicalLocationId: string;
+  readonly name: string;
+  readonly slotCount: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface PlacementSlot {
+  readonly id: string;
+  readonly surfaceId: string;
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export type StructuralDrawingKind = 'rect' | 'polyline';
+
+export interface SketchPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface StructuralDrawing {
+  readonly id: string;
+  readonly surfaceId: string;
+  readonly kind: StructuralDrawingKind;
+  readonly x: number | null;
+  readonly y: number | null;
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly points: readonly SketchPoint[] | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface PlacementSurfaceDetail extends PlacementSurfaceSummary {
+  readonly slots: readonly PlacementSlot[];
+  readonly structuralDrawings: readonly StructuralDrawing[];
+}
+
+export interface PlacementSurfacesEnvelope {
+  readonly placementSurfaces: readonly PlacementSurfaceSummary[];
+}
+
+export interface PlacementSurfaceEnvelope {
+  readonly placementSurface: PlacementSurfaceDetail | PlacementSurfaceSummary;
+}
+
+export interface PlacementSlotEnvelope {
+  readonly placementSlot: PlacementSlot;
+}
+
+export interface StructuralDrawingEnvelope {
+  readonly structuralDrawing: StructuralDrawing;
+}
+
+export interface PlacementSurfaceInput {
+  readonly name: string;
+}
+
+export interface PlacementSlotInput {
+  readonly label: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface PlacementSlotPatch {
+  readonly label?: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+export interface StructuralDrawingInput {
+  readonly kind: StructuralDrawingKind;
+  readonly x?: number;
+  readonly y?: number;
+  readonly width?: number;
+  readonly height?: number;
+  readonly points?: readonly SketchPoint[];
+}
+
+export interface StructuralDrawingPatch {
+  readonly x?: number;
+  readonly y?: number;
+  readonly width?: number;
+  readonly height?: number;
+  readonly points?: readonly SketchPoint[];
+}
+
 export interface Credentials {
   readonly email: string;
   readonly password: string;

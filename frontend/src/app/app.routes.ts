@@ -23,6 +23,15 @@ export const routes: Routes = [
     canActivate: [authGuard],
     title: 'My page',
   },
+  {
+    path: 'my-page/typical-locations/:locationId/surfaces',
+    loadComponent: () =>
+      import('./features/my-page/placement-surfaces/placement-surfaces-page').then(
+        ({ PlacementSurfacesPage }) => PlacementSurfacesPage,
+      ),
+    canActivate: [authGuard],
+    title: 'Placement Surfaces',
+  },
   { path: 'reservations', component: MyReservationsPageComponent, canActivate: [authGuard] },
   { path: 'sharing-groups', component: SharingGroupsPageComponent, canActivate: [authGuard] },
   {
