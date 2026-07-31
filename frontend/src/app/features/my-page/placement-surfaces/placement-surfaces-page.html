@@ -96,10 +96,9 @@
             <label>
               Name
               <input
-                [ngModel]="surfaceNameDraft"
-                (ngModelChange)="surfaceNameDraft = $event"
+                [formField]="surfaceForm.name"
                 (change)="applySurfaceName()"
-                [disabled]="busy()"
+                autocomplete="off"
               />
             </label>
             <button
@@ -120,9 +119,9 @@
               <label>
                 Label
                 <input
-                  [(ngModel)]="slotLabelDraft"
+                  [formField]="slotForm.label"
                   (change)="applySlotLabel()"
-                  [disabled]="busy()"
+                  autocomplete="off"
                 />
               </label>
               <fieldset>
@@ -131,19 +130,17 @@
                   <label>
                     X
                     <input
-                      [(ngModel)]="slotX"
+                      [formField]="slotForm.x"
                       inputmode="decimal"
                       (change)="applySlotGeometryFields()"
-                      [disabled]="busy()"
                     />
                   </label>
                   <label>
                     Y
                     <input
-                      [(ngModel)]="slotY"
+                      [formField]="slotForm.y"
                       inputmode="decimal"
                       (change)="applySlotGeometryFields()"
-                      [disabled]="busy()"
                     />
                   </label>
                 </div>
@@ -151,19 +148,17 @@
                   <label>
                     W
                     <input
-                      [(ngModel)]="slotW"
+                      [formField]="slotForm.width"
                       inputmode="decimal"
                       (change)="applySlotGeometryFields()"
-                      [disabled]="busy()"
                     />
                   </label>
                   <label>
                     H
                     <input
-                      [(ngModel)]="slotH"
+                      [formField]="slotForm.height"
                       inputmode="decimal"
                       (change)="applySlotGeometryFields()"
-                      [disabled]="busy()"
                     />
                   </label>
                 </div>
