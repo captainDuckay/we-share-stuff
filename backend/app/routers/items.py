@@ -150,6 +150,21 @@ async def require_placement_slot_for_location(
     return slot
 
 
+async def replace_item_categories(
+    db: DatabaseSession, item_id: UUID, category_names: list[str]
+) -> None:
+    await db.execute(delete(ItemCategory).where(ItemCategory.item_id == item_id))
+    for category_name in category_names:
+        category = await db.scalar(
+            select(Category).where(Category.name == category_name)
+        )
+        if category is None:
+            category = Category(name=category_name)
+            db.add(category)
+            await db.flush()
+        db.add(ItemCategory(item_id=item_id, category_id=category.id))
+
+
 @router.get("", response_model=ItemsEnvelope)
 async def list_items(
     db: DatabaseSession,
@@ -196,15 +211,7 @@ async def create_item(
         item.placement_slot = placement_slot
     db.add(item)
     await db.flush()
-    for category_name in payload.categories:
-        category = await db.scalar(
-            select(Category).where(Category.name == category_name)
-        )
-        if category is None:
-            category = Category(name=category_name)
-            db.add(category)
-            await db.flush()
-        db.add(ItemCategory(item_id=item.id, category_id=category.id))
+    await replace_item_categories(db, item.id, payload.categories)
     await db.commit()
     item = await owned_item(db, item.id, current.user.id)
     return await item_envelope(db, item)
@@ -228,6 +235,7 @@ async def update_item(
     item = await owned_item(db, item_id, current.user.id)
     previous_location_id = item.typical_location_id
     location_changed = False
+    category_names = updates.pop("categories", None)
 
     if "typical_location_id" in updates:
         typical_location_id = updates["typical_location_id"]
@@ -279,6 +287,8 @@ async def update_item(
 
     for field, value in updates.items():
         setattr(item, field, value)
+    if category_names is not None:
+        await replace_item_categories(db, item.id, category_names)
     await db.commit()
     item = await owned_item(db, item.id, current.user.id)
     return await item_envelope(db, item)

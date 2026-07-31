@@ -162,6 +162,9 @@ class ItemUpdate(StrictModel):
     placement_slot_id: UUID | None = Field(
         default=None, validation_alias="placementSlotId"
     )
+    categories: list[Annotated[str, Field(max_length=CATEGORY_MAX_LENGTH)]] | None = (
+        None
+    )
 
     @field_validator("name")
     @classmethod
@@ -177,6 +180,13 @@ class ItemUpdate(StrictModel):
     @classmethod
     def validate_typical_placement(cls, value: str | None) -> str | None:
         return normalized_description(value)
+
+    @field_validator("categories")
+    @classmethod
+    def validate_categories(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return list(dict.fromkeys(normalized_category(category) for category in value))
 
 
 class TypicalLocationInput(StrictModel):
