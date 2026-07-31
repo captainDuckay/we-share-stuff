@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -533,6 +534,17 @@ class ReservationChangeProposalsEnvelope(AliasModel):
 
 SLOT_LABEL_MAX_LENGTH = NAME_MAX_LENGTH
 STRUCTURAL_DRAWING_KINDS = frozenset({"rect", "polyline"})
+POLYLINE_POINTS_MIN = 2
+POLYLINE_POINTS_MAX = 500
+MAX_PLACEMENT_SURFACES_PER_LOCATION = 50
+MAX_PLACEMENT_SLOTS_PER_LOCATION = 200
+MAX_STRUCTURAL_DRAWINGS_PER_SURFACE = 200
+
+
+def require_finite_number(value: float) -> float:
+    if not math.isfinite(value):
+        raise ValueError("must be a finite number")
+    return value
 
 
 class PlacementSurfaceInput(StrictModel):
@@ -565,6 +577,11 @@ class PlacementSlotInput(StrictModel):
     def validate_label(cls, value: str) -> str:
         return normalized_name(value)
 
+    @field_validator("x", "y", "width", "height")
+    @classmethod
+    def validate_finite_geometry(cls, value: float) -> float:
+        return require_finite_number(value)
+
 
 class PlacementSlotPatch(StrictModel):
     label: Annotated[
@@ -580,10 +597,22 @@ class PlacementSlotPatch(StrictModel):
     def validate_label(cls, value: str | None) -> str | None:
         return normalized_name(value) if value is not None else None
 
+    @field_validator("x", "y", "width", "height")
+    @classmethod
+    def validate_finite_geometry(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        return require_finite_number(value)
+
 
 class PointInput(StrictModel):
     x: float
     y: float
+
+    @field_validator("x", "y")
+    @classmethod
+    def validate_finite(cls, value: float) -> float:
+        return require_finite_number(value)
 
 
 class StructuralDrawingInput(StrictModel):
@@ -592,16 +621,20 @@ class StructuralDrawingInput(StrictModel):
     y: float | None = None
     width: Annotated[float | None, Field(default=None, gt=0)] = None
     height: Annotated[float | None, Field(default=None, gt=0)] = None
-    points: list[PointInput] | None = None
+    points: (
+        Annotated[
+            list[PointInput],
+            Field(min_length=POLYLINE_POINTS_MIN, max_length=POLYLINE_POINTS_MAX),
+        ]
+        | None
+    ) = None
 
-    @field_validator("points")
+    @field_validator("x", "y", "width", "height")
     @classmethod
-    def validate_points(
-        cls, value: list[PointInput] | None
-    ) -> list[PointInput] | None:
-        if value is not None and len(value) < 2:
-            raise ValueError("must include at least 2 points")
-        return value
+    def validate_finite_geometry(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        return require_finite_number(value)
 
     @model_validator(mode="after")
     def validate_geometry_for_kind(self) -> "StructuralDrawingInput":
@@ -633,16 +666,20 @@ class StructuralDrawingPatch(StrictModel):
     y: float | None = None
     width: Annotated[float | None, Field(default=None, gt=0)] = None
     height: Annotated[float | None, Field(default=None, gt=0)] = None
-    points: list[PointInput] | None = None
+    points: (
+        Annotated[
+            list[PointInput],
+            Field(min_length=POLYLINE_POINTS_MIN, max_length=POLYLINE_POINTS_MAX),
+        ]
+        | None
+    ) = None
 
-    @field_validator("points")
+    @field_validator("x", "y", "width", "height")
     @classmethod
-    def validate_points(
-        cls, value: list[PointInput] | None
-    ) -> list[PointInput] | None:
-        if value is not None and len(value) < 2:
-            raise ValueError("must include at least 2 points")
-        return value
+    def validate_finite_geometry(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        return require_finite_number(value)
 
 
 class PlacementSlotResponse(AliasModel):
