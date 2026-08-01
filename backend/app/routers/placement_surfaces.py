@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from app.csrf import require_session_csrf
 from app.dependencies import CurrentSession, CurrentSessionDependency, DatabaseSession
 from app.models import (
+    Item,
     PlacementSlot,
     PlacementSurface,
     StructuralDrawing,
@@ -200,6 +201,25 @@ async def require_drawing_capacity(db: DatabaseSession, surface_id: UUID) -> Non
         )
 
 
+async def linked_item_count_for_slot(db: DatabaseSession, slot_id: UUID) -> int:
+    count = await db.scalar(
+        select(func.count()).select_from(Item).where(Item.placement_slot_id == slot_id)
+    )
+    return int(count or 0)
+
+
+async def linked_item_count_for_surface(
+    db: DatabaseSession, surface_id: UUID
+) -> int:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(Item)
+        .join(PlacementSlot, Item.placement_slot_id == PlacementSlot.id)
+        .where(PlacementSlot.surface_id == surface_id)
+    )
+    return int(count or 0)
+
+
 @router.get("", response_model=PlacementSurfacesEnvelope)
 async def list_placement_surfaces(
     typical_location_id: UUID,
@@ -294,6 +314,14 @@ async def delete_placement_surface(
     surface = await owned_surface(
         db, typical_location_id, surface_id, current.user.id
     )
+    linked_count = await linked_item_count_for_surface(db, surface.id)
+    if linked_count > 0:
+        raise problem(
+            409,
+            "placement_surface_in_use",
+            "Placement Surface has Slots linked to Items",
+            {"linkedItemCount": str(linked_count)},
+        )
     await db.delete(surface)
     await db.commit()
 
@@ -363,6 +391,36 @@ async def update_placement_slot(
         await require_unique_slot_label(
             db, typical_location_id, updates["label"], except_slot_id=slot.id
         )
+    if "surface_id" in updates:
+        target_surface_id = updates["surface_id"]
+        if target_surface_id is None:
+            raise problem(
+                400,
+                "validation_failed",
+                "Validation failed",
+                {"surfaceId": "cannot be null"},
+            )
+        if target_surface_id != slot.surface_id:
+            target = await db.scalar(
+                select(PlacementSurface).where(PlacementSurface.id == target_surface_id)
+            )
+            if target is None:
+                raise problem(
+                    404,
+                    "placement_surface_not_found",
+                    "Placement Surface was not found",
+                )
+            if target.typical_location_id != typical_location_id:
+                raise problem(
+                    400,
+                    "placement_slot_reparent_location_mismatch",
+                    "Placement Slot can only be re-parented within the same Typical Location",
+                )
+            # Ensure the target surface is owned (same location already implies ownership
+            # via owned_surface on the source path, but reject cross-owner IDs cleanly).
+            await owned_surface(
+                db, typical_location_id, target_surface_id, current.user.id
+            )
     for field, value in updates.items():
         setattr(slot, field, value)
     await db.commit()
@@ -390,6 +448,14 @@ async def delete_placement_slot(
     )
     if slot is None:
         raise problem(404, "placement_slot_not_found", "Placement Slot was not found")
+    linked_count = await linked_item_count_for_slot(db, slot.id)
+    if linked_count > 0:
+        raise problem(
+            409,
+            "placement_slot_in_use",
+            "Placement Slot is linked to Items",
+            {"linkedItemCount": str(linked_count)},
+        )
     await db.delete(slot)
     await db.commit()
 

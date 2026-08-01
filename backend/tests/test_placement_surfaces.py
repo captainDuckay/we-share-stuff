@@ -630,3 +630,403 @@ def test_placement_collection_quotas(
     )
     assert drawing_c.status_code == 409
     assert drawing_c.json()["code"] == "structural_drawing_limit_exceeded"
+
+
+def _create_item_on_slot(
+    client: TestClient,
+    headers: dict[str, str],
+    location_id: str,
+    slot_id: str,
+    name: str = "Linked tool",
+) -> dict:
+    response = client.post(
+        "/api/items",
+        headers=headers,
+        json={
+            "name": name,
+            "typicalLocationId": location_id,
+            "placementSlotId": slot_id,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()["item"]
+
+
+def test_slot_delete_blocked_while_items_link_and_free_when_unlinked(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "slot-delete-block@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    slot = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"label": "Bin", "x": 0, "y": 0, "width": 10, "height": 10},
+    ).json()["placementSlot"]
+    item_a = _create_item_on_slot(
+        client, headers, location["id"], slot["id"], name="Drill"
+    )
+    item_b = _create_item_on_slot(
+        client, headers, location["id"], slot["id"], name="Saw"
+    )
+
+    blocked = client.delete(
+        slot_url(location["id"], surface["id"], slot["id"]), headers=headers
+    )
+    assert blocked.status_code == 409
+    body = blocked.json()
+    assert body["code"] == "placement_slot_in_use"
+    assert body["errors"]["linkedItemCount"] == "2"
+
+    # Slot still present; items still linked (no silent unlink).
+    detail = client.get(surface_url(location["id"], surface["id"]), headers=headers)
+    assert len(detail.json()["placementSurface"]["slots"]) == 1
+    still_linked = client.get(
+        "/api/items", headers=headers, params={"placementSlotId": slot["id"]}
+    )
+    linked_ids = {entry["id"] for entry in still_linked.json()["items"]}
+    assert linked_ids == {item_a["id"], item_b["id"]}
+
+    client.patch(
+        f"/api/items/{item_a['id']}", headers=headers, json={"placementSlotId": None}
+    )
+    client.patch(
+        f"/api/items/{item_b['id']}", headers=headers, json={"placementSlotId": None}
+    )
+
+    free = client.delete(
+        slot_url(location["id"], surface["id"], slot["id"]), headers=headers
+    )
+    assert free.status_code == 204
+    after = client.get(surface_url(location["id"], surface["id"]), headers=headers)
+    assert after.json()["placementSurface"]["slots"] == []
+
+
+def test_surface_delete_blocked_when_any_slot_has_item_links(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "surface-delete-block@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    slot_linked = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"label": "Used", "x": 0, "y": 0, "width": 10, "height": 10},
+    ).json()["placementSlot"]
+    client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"label": "Free", "x": 20, "y": 0, "width": 10, "height": 10},
+    )
+    client.post(
+        drawings_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"kind": "rect", "x": 0, "y": 0, "width": 50, "height": 50},
+    )
+    _create_item_on_slot(client, headers, location["id"], slot_linked["id"])
+
+    blocked = client.delete(
+        surface_url(location["id"], surface["id"]), headers=headers
+    )
+    assert blocked.status_code == 409
+    body = blocked.json()
+    assert body["code"] == "placement_surface_in_use"
+    assert body["errors"]["linkedItemCount"] == "1"
+
+    # No partial cascade: surface, both slots, and drawing remain.
+    detail = client.get(surface_url(location["id"], surface["id"]), headers=headers)
+    assert detail.status_code == 200
+    surface_body = detail.json()["placementSurface"]
+    assert len(surface_body["slots"]) == 2
+    assert len(surface_body["structuralDrawings"]) == 1
+
+
+def test_drawing_always_deletable_even_when_sibling_slots_linked(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "drawing-free-delete@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    slot = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"label": "Linked", "x": 0, "y": 0, "width": 10, "height": 10},
+    ).json()["placementSlot"]
+    drawing = client.post(
+        drawings_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"kind": "rect", "x": 0, "y": 0, "width": 20, "height": 20},
+    ).json()["structuralDrawing"]
+    _create_item_on_slot(client, headers, location["id"], slot["id"])
+
+    deleted = client.delete(
+        drawing_url(location["id"], surface["id"], drawing["id"]), headers=headers
+    )
+    assert deleted.status_code == 204
+    detail = client.get(surface_url(location["id"], surface["id"]), headers=headers)
+    assert detail.json()["placementSurface"]["structuralDrawings"] == []
+    assert len(detail.json()["placementSurface"]["slots"]) == 1
+
+
+def test_free_surface_delete_cascades_slots_and_drawings_with_no_item_links(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "free-cascade@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"label": "A", "x": 0, "y": 0, "width": 10, "height": 10},
+    )
+    client.post(
+        drawings_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"kind": "polyline", "points": [{"x": 0, "y": 0}, {"x": 10, "y": 10}]},
+    )
+
+    deleted = client.delete(
+        surface_url(location["id"], surface["id"]), headers=headers
+    )
+    assert deleted.status_code == 204
+    listed = client.get(surfaces_url(location["id"]), headers=headers)
+    assert listed.json()["placementSurfaces"] == []
+
+
+def test_reparent_slot_same_location_keeps_id_links_and_geometry(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "reparent-same@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    wall = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    shed = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Shed"}
+    ).json()["placementSurface"]
+    slot = client.post(
+        slots_url(location["id"], wall["id"]),
+        headers=headers,
+        json={"label": "Traveler", "x": 12.5, "y": 30, "width": 40, "height": 50},
+    ).json()["placementSlot"]
+    item = _create_item_on_slot(client, headers, location["id"], slot["id"])
+
+    reparented = client.patch(
+        slot_url(location["id"], wall["id"], slot["id"]),
+        headers=headers,
+        json={"surfaceId": shed["id"]},
+    )
+    assert reparented.status_code == 200
+    body = reparented.json()["placementSlot"]
+    assert body["id"] == slot["id"]
+    assert body["surfaceId"] == shed["id"]
+    assert body["x"] == 12.5
+    assert body["y"] == 30
+    assert body["width"] == 40
+    assert body["height"] == 50
+    assert body["label"] == "Traveler"
+
+    # Source surface no longer lists the slot; target does.
+    wall_detail = client.get(
+        surface_url(location["id"], wall["id"]), headers=headers
+    )
+    assert wall_detail.json()["placementSurface"]["slots"] == []
+    shed_detail = client.get(
+        surface_url(location["id"], shed["id"]), headers=headers
+    )
+    assert len(shed_detail.json()["placementSurface"]["slots"]) == 1
+    assert shed_detail.json()["placementSurface"]["slots"][0]["id"] == slot["id"]
+
+    # Item link retained on stable slot id.
+    item_after = client.get(
+        "/api/items", headers=headers, params={"placementSlotId": slot["id"]}
+    )
+    assert len(item_after.json()["items"]) == 1
+    assert item_after.json()["items"][0]["id"] == item["id"]
+    assert item_after.json()["items"][0]["placementSlot"]["surfaceId"] == shed["id"]
+
+
+def test_reparent_slot_cross_location_rejected(client: TestClient) -> None:
+    owner = register_user(client, "reparent-cross@example.com")
+    headers = use_session(client, owner)
+    home = create_location(client, headers)
+    # Second location
+    cabin = client.post(
+        "/api/typical-locations",
+        headers=headers,
+        json={
+            "name": "Cabin",
+            "details": None,
+            "timezone": "Europe/Copenhagen",
+        },
+    ).json()["typicalLocation"]
+    home_surface = client.post(
+        surfaces_url(home["id"]), headers=headers, json={"name": "Home wall"}
+    ).json()["placementSurface"]
+    cabin_surface = client.post(
+        surfaces_url(cabin["id"]), headers=headers, json={"name": "Cabin wall"}
+    ).json()["placementSurface"]
+    slot = client.post(
+        slots_url(home["id"], home_surface["id"]),
+        headers=headers,
+        json={"label": "Stay home", "x": 0, "y": 0, "width": 10, "height": 10},
+    ).json()["placementSlot"]
+
+    rejected = client.patch(
+        slot_url(home["id"], home_surface["id"], slot["id"]),
+        headers=headers,
+        json={"surfaceId": cabin_surface["id"]},
+    )
+    assert rejected.status_code == 400
+    assert rejected.json()["code"] == "placement_slot_reparent_location_mismatch"
+
+    # Slot remains on home surface.
+    home_detail = client.get(
+        surface_url(home["id"], home_surface["id"]), headers=headers
+    )
+    assert len(home_detail.json()["placementSurface"]["slots"]) == 1
+
+
+def test_rename_and_move_geometry_allowed_while_items_linked(
+    client: TestClient,
+) -> None:
+    owner = register_user(client, "live-edit-linked@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    slot = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"label": "Old label", "x": 0, "y": 0, "width": 10, "height": 10},
+    ).json()["placementSlot"]
+    _create_item_on_slot(client, headers, location["id"], slot["id"])
+
+    renamed_surface = client.patch(
+        surface_url(location["id"], surface["id"]),
+        headers=headers,
+        json={"name": "Renamed wall"},
+    )
+    assert renamed_surface.status_code == 200
+    assert renamed_surface.json()["placementSurface"]["name"] == "Renamed wall"
+
+    renamed_slot = client.patch(
+        slot_url(location["id"], surface["id"], slot["id"]),
+        headers=headers,
+        json={"label": "New label", "x": 5, "y": 15, "width": 80, "height": 60},
+    )
+    assert renamed_slot.status_code == 200
+    body = renamed_slot.json()["placementSlot"]
+    assert body["label"] == "New label"
+    assert body["x"] == 5
+    assert body["width"] == 80
+    assert body["id"] == slot["id"]
+
+
+def test_accepted_reservation_snapshot_does_not_block_structure_delete_after_unlink(
+    client: TestClient,
+) -> None:
+    """Accepted Reservation snapshots are copies — no live structure lock after unlink."""
+    owner = register_user(client, "snapshot-no-lock-owner@example.com")
+    borrower = register_user(client, "snapshot-no-lock-borrower@example.com")
+    owner_headers = use_session(client, owner)
+
+    group = client.post(
+        "/api/sharing-groups",
+        headers=owner_headers,
+        json={"name": "Yard share"},
+    ).json()["sharingGroup"]
+    invite = client.post(
+        f"/api/sharing-groups/{group['id']}/invitations",
+        headers=owner_headers,
+        json={"email": "snapshot-no-lock-borrower@example.com"},
+    )
+    assert invite.status_code == 201
+    invitation_id = invite.json()["invitation"]["id"]
+    borrower_headers = use_session(client, borrower)
+    accepted_invite = client.post(
+        f"/api/invitations/{invitation_id}/accept",
+        headers=borrower_headers,
+    )
+    assert accepted_invite.status_code == 200
+
+    owner_headers = use_session(client, owner)
+    location = create_location(client, owner_headers)
+    surface = client.post(
+        surfaces_url(location["id"]), headers=owner_headers, json={"name": "Wall"}
+    ).json()["placementSurface"]
+    slot = client.post(
+        slots_url(location["id"], surface["id"]),
+        headers=owner_headers,
+        json={"label": "Hook", "x": 0, "y": 0, "width": 20, "height": 20},
+    ).json()["placementSlot"]
+    item = client.post(
+        "/api/items",
+        headers=owner_headers,
+        json={
+            "name": "Rake",
+            "typicalLocationId": location["id"],
+            "placementSlotId": slot["id"],
+        },
+    ).json()["item"]
+    assert (
+        client.post(
+            f"/api/items/{item['id']}/sharing-groups/{group['id']}",
+            headers=owner_headers,
+        ).status_code
+        == 201
+    )
+
+    borrower_headers = use_session(client, borrower)
+    reservation_response = client.post(
+        f"/api/sharing-groups/{group['id']}/shared-items/{item['id']}/reservations",
+        headers=borrower_headers,
+        json={
+            "startLocal": "2099-12-01T10:00:00",
+            "endLocal": "2099-12-01T12:00:00",
+        },
+    )
+    assert reservation_response.status_code == 201
+    reservation = reservation_response.json()["reservation"]
+    owner_headers = use_session(client, owner)
+    assert (
+        client.post(
+            f"/api/reservations/{reservation['id']}/accept", headers=owner_headers
+        ).status_code
+        == 200
+    )
+
+    # Live link still blocks delete.
+    blocked = client.delete(
+        slot_url(location["id"], surface["id"], slot["id"]), headers=owner_headers
+    )
+    assert blocked.status_code == 409
+
+    # Unlink item; accepted reservation snapshot must not keep the lock.
+    client.patch(
+        f"/api/items/{item['id']}",
+        headers=owner_headers,
+        json={"placementSlotId": None},
+    )
+    free = client.delete(
+        slot_url(location["id"], surface["id"], slot["id"]), headers=owner_headers
+    )
+    assert free.status_code == 204
+    surface_delete = client.delete(
+        surface_url(location["id"], surface["id"]), headers=owner_headers
+    )
+    assert surface_delete.status_code == 204

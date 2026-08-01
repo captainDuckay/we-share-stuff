@@ -18,9 +18,13 @@ import { TypicalLocationsApi } from '../../../core/api/typical-locations-api.ser
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { MaterialSymbolIconComponent } from '../../../ui/material-symbol-icon/material-symbol-icon.component';
 import {
+  BlockedDeleteInfo,
+  blockedDeleteFromError,
+  blockedDeleteMessage,
   itemSlotAssignHint,
   itemsAssignableToSlot,
   itemsLinkedToSlot,
+  viewItemsQueryParams,
 } from './functions';
 import {
   DEFAULT_LINE_HALF_LENGTH_MM,
@@ -93,6 +97,13 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly itemsLoading = signal(false);
   readonly error = signal('');
   readonly formError = signal('');
+  /** When hard-delete is blocked by live Item links. */
+  readonly blockedDelete = signal<
+    | (BlockedDeleteInfo & {
+        readonly placementSlotId?: string;
+      })
+    | null
+  >(null);
   readonly announcement = signal('');
   /** Draft Item id for the compact assign control when a Slot is selected. */
   readonly assignItemId = signal('');
@@ -164,6 +175,20 @@ export class PlacementSurfacesPage implements AfterViewInit {
     const d = this.detail();
     if (!sel || sel.kind === 'slot' || !d) return null;
     return d.structuralDrawings.find((drawing) => drawing.id === sel.id) ?? null;
+  });
+
+  /** Other surfaces under this location (for re-parent control). */
+  readonly reparentTargets = computed(() => {
+    const activeId = this.activeSurfaceId();
+    return this.surfaces().filter((surface) => surface.id !== activeId);
+  });
+
+  readonly viewItemsLinkParams = computed(() => {
+    const blocked = this.blockedDelete();
+    return viewItemsQueryParams({
+      locationId: this.locationId(),
+      placementSlotId: blocked?.placementSlotId,
+    });
   });
 
   readonly linkedItems = computed(() => {
@@ -258,6 +283,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
     if (surfaceId === this.activeSurfaceId() || this.busy()) return;
     this.selection.set(null);
     this.formError.set('');
+    this.blockedDelete.set(null);
     await this.#loadDetail(surfaceId);
   }
 
@@ -314,8 +340,16 @@ export class PlacementSurfacesPage implements AfterViewInit {
   async deleteSurface(): Promise<void> {
     const detail = this.detail();
     if (!detail || this.busy()) return;
+    if (
+      !globalThis.confirm(
+        `Delete surface “${detail.name}”? Child slots and structural drawings will be removed.`,
+      )
+    ) {
+      return;
+    }
     this.busy.set(true);
     this.formError.set('');
+    this.blockedDelete.set(null);
     try {
       await this.#api.remove(this.locationId(), detail.id);
       const remaining = this.surfaces().filter((surface) => surface.id !== detail.id);
@@ -329,8 +363,14 @@ export class PlacementSurfacesPage implements AfterViewInit {
       } else {
         await this.#loadDetail(remaining[0]!.id);
       }
-    } catch {
-      this.formError.set('We could not delete that Placement Surface.');
+    } catch (error) {
+      const blocked = blockedDeleteFromError(error);
+      if (blocked) {
+        this.blockedDelete.set(blocked);
+        this.formError.set(blockedDeleteMessage(blocked));
+      } else {
+        this.formError.set('We could not delete that Placement Surface.');
+      }
     } finally {
       this.busy.set(false);
     }
@@ -622,8 +662,23 @@ export class PlacementSurfacesPage implements AfterViewInit {
     const sel = this.selection();
     const detail = this.detail();
     if (!sel || !detail || this.busy()) return;
+    if (sel.kind === 'slot') {
+      const slot = detail.slots.find((entry) => entry.id === sel.id);
+      if (
+        !globalThis.confirm(
+          `Delete slot “${slot?.label ?? 'Slot'}”? This cannot be undone.`,
+        )
+      ) {
+        return;
+      }
+    } else if (
+      !globalThis.confirm('Delete this structural drawing? This cannot be undone.')
+    ) {
+      return;
+    }
     this.busy.set(true);
     this.formError.set('');
+    this.blockedDelete.set(null);
     try {
       if (sel.kind === 'slot') {
         await this.#api.removeSlot(this.locationId(), detail.id, sel.id);
@@ -647,8 +702,67 @@ export class PlacementSurfacesPage implements AfterViewInit {
         this.announcement.set('Structural drawing deleted.');
       }
       this.selection.set(null);
-    } catch {
-      this.formError.set('We could not delete the selection.');
+    } catch (error) {
+      const blocked = blockedDeleteFromError(error);
+      if (blocked && sel.kind === 'slot') {
+        this.blockedDelete.set({ ...blocked, placementSlotId: sel.id });
+        this.formError.set(blockedDeleteMessage(blocked));
+      } else {
+        this.formError.set('We could not delete the selection.');
+      }
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  onReparentSelect(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const targetSurfaceId = select.value;
+    select.value = '';
+    if (targetSurfaceId) void this.reparentSlot(targetSurfaceId);
+  }
+
+  async reparentSlot(targetSurfaceId: string): Promise<void> {
+    const slot = this.selectedSlot();
+    const detail = this.detail();
+    if (!slot || !detail || this.busy() || !targetSurfaceId) return;
+    if (targetSurfaceId === detail.id) return;
+    const target = this.surfaces().find((surface) => surface.id === targetSurfaceId);
+    if (!target) return;
+    this.busy.set(true);
+    this.formError.set('');
+    this.blockedDelete.set(null);
+    try {
+      const response = await this.#api.updateSlot(
+        this.locationId(),
+        detail.id,
+        slot.id,
+        { surfaceId: targetSurfaceId },
+      );
+      const updated = response.placementSlot;
+      const nextSourceSlots = detail.slots.filter((entry) => entry.id !== slot.id);
+      this.detail.update((d) => (d ? { ...d, slots: nextSourceSlots } : d));
+      this.#rememberSurfaceSlots(detail.id, nextSourceSlots);
+      this.#bumpActiveSlotCount(-1);
+      this.#rememberSurfaceSlots(targetSurfaceId, [
+        ...(this.#slotCatalog().get(targetSurfaceId) ?? []),
+        { id: updated.id, label: updated.label },
+      ]);
+      this.surfaces.update((list) =>
+        list.map((surface) =>
+          surface.id === targetSurfaceId
+            ? { ...surface, slotCount: surface.slotCount + 1 }
+            : surface,
+        ),
+      );
+      this.selection.set(null);
+      this.announcement.set(
+        `Slot “${updated.label}” moved to “${target.name}”. Item links kept.`,
+      );
+    } catch (error) {
+      this.formError.set(
+        this.#friendlyError(error, 'We could not re-parent that Slot.'),
+      );
     } finally {
       this.busy.set(false);
     }
@@ -921,6 +1035,9 @@ export class PlacementSurfacesPage implements AfterViewInit {
       const code = (error.error as { code?: string } | null)?.code;
       if (code === 'placement_slot_label_conflict') {
         return 'That Slot label is already used on this Typical Location.';
+      }
+      if (code === 'placement_slot_reparent_location_mismatch') {
+        return 'Slots can only be re-parented between Surfaces on the same Typical Location.';
       }
     }
     return fallback;

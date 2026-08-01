@@ -1,5 +1,10 @@
 <app-page-layout pageTitle="My stuff">
-  @if (typicalLocationId()) {
+  @if (placementSlotId()) {
+    <p>
+      Showing Items linked to the selected Placement Slot.
+      <a routerLink="/my-stuff">Show all Items</a>
+    </p>
+  } @else if (typicalLocationId()) {
     <p>
       Showing Items assigned to the selected Typical Location.
       <a routerLink="/my-stuff">Show all Items</a>
