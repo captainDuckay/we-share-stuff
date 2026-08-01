@@ -246,6 +246,8 @@ export const hasPendingProposal = (
     (proposal) => proposal.reservation.id === reservationId && proposal.status === 'pending',
   );
 
+export type ReservationsTab = 'upcoming' | 'pending' | 'past';
+
 export const isUpcomingAcceptedReservation = (
   reservation: Reservation,
   now = new Date(),
@@ -255,6 +257,11 @@ export const isPastReservation = (reservation: Reservation, now = new Date()): b
   ['declined', 'withdrawn', 'cancelled'].includes(reservation.status) ||
   (reservation.status === 'accepted' && new Date(reservation.endAt) < now);
 
+export const isBorrowWindowOpen = (reservation: Reservation, now = new Date()): boolean =>
+  reservation.status === 'accepted' &&
+  new Date(reservation.startAt) <= now &&
+  new Date(reservation.endAt) >= now;
+
 export const reservationCanProposeChange = (
   reservation: Reservation,
   proposals: readonly ReservationChangeProposal[],
@@ -262,6 +269,83 @@ export const reservationCanProposeChange = (
 ): boolean =>
   (reservation.status === 'pending' || isUpcomingAcceptedReservation(reservation, now)) &&
   !hasPendingProposal(proposals, reservation.id);
+
+/** Default My reservations landing: Upcoming → Pending → Past/empty. */
+export const defaultReservationsTab = (
+  upcomingCount: number,
+  pendingCount: number,
+): ReservationsTab => {
+  if (upcomingCount > 0) return 'upcoming';
+  if (pendingCount > 0) return 'pending';
+  return 'past';
+};
+
+export const pendingProposalForReservation = (
+  proposals: readonly ReservationChangeProposal[],
+  reservationId: string,
+  proposedByUserId: string | null | undefined,
+  role: 'other' | 'me',
+): ReservationChangeProposal | null =>
+  proposals.find((proposal) => {
+    if (proposal.reservation.id !== reservationId || proposal.status !== 'pending') return false;
+    if (!proposedByUserId) return false;
+    return role === 'me'
+      ? proposal.proposedBy.id === proposedByUserId
+      : proposal.proposedBy.id !== proposedByUserId;
+  }) ?? null;
+
+/** Owner-proposed pending change the borrower must accept or reject. */
+export const reservationsNeedingBorrowerResponse = (
+  reservations: readonly Reservation[],
+  proposals: readonly ReservationChangeProposal[],
+  borrowerUserId: string | null | undefined,
+): readonly Reservation[] => {
+  if (!borrowerUserId) return [];
+  return reservations.filter(
+    (reservation) =>
+      pendingProposalForReservation(proposals, reservation.id, borrowerUserId, 'other') !== null,
+  );
+};
+
+/**
+ * Plain-language status for the borrower trip list.
+ * Proposal context is optional; omit when proposals failed to load.
+ */
+export const borrowerReservationStatusLabel = (
+  reservation: Reservation,
+  options: {
+    readonly ownerDisplayName: string;
+    readonly pendingFromOwner?: boolean;
+    readonly pendingByMe?: boolean;
+    readonly now?: Date;
+  },
+): string => {
+  const now = options.now ?? new Date();
+  if (options.pendingFromOwner) return 'Accepted — owner proposed new dates';
+  if (reservation.status === 'pending') {
+    return options.pendingByMe
+      ? 'Pending — you proposed new dates'
+      : `Pending — waiting on ${options.ownerDisplayName}`;
+  }
+  if (reservation.status === 'accepted') {
+    if (isPastReservation(reservation, now)) return 'Past — completed';
+    if (isBorrowWindowOpen(reservation, now)) return 'Accepted — borrow window open';
+    return 'Accepted — upcoming';
+  }
+  if (reservation.status === 'declined') return 'Declined';
+  if (reservation.status === 'withdrawn') return 'Withdrawn';
+  return 'Cancelled';
+};
+
+/**
+ * List/detail text path for revealed placement only.
+ * Hidden (pre-accept or cancelled) returns null so we never re-reveal on Past.
+ */
+export const borrowerListPlacementPath = (placement: TypicalPlacementVisibility): string | null => {
+  if (!placement.visible) return null;
+  if (placement.structured) return structuredPlacementTextPath(placement.structured);
+  return placement.value?.trim() || 'No Typical Placement has been noted.';
+};
 
 export const sharedItemAvailabilityLabel = (item: SharedItem, nowMs: number): string => {
   const ranges = item.reservationState.acceptedRanges;
