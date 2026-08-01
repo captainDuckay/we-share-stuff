@@ -168,6 +168,58 @@
                 Width/height fields are the same values as the canvas rectangle. Stable id:
                 <code>{{ slot.id }}</code>
               </p>
+
+              <h3>Items on this slot</h3>
+              @if (itemsLoading()) {
+                <p class="ps-page__note" role="status">Loading items…</p>
+              } @else if (linkedItems().length === 0) {
+                <p class="ps-page__note">No Items linked to this Slot yet.</p>
+              } @else {
+                <ul class="ps-page__item-list">
+                  @for (item of linkedItems(); track item.id) {
+                    <li class="ps-page__item-row">
+                      <span class="ps-page__item-name">{{ item.name }}</span>
+                      <button
+                        type="button"
+                        class="ps-page__item-action"
+                        [disabled]="itemsBusy()"
+                        (click)="unlinkItemFromSlot(item)"
+                      >
+                        Unlink
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+
+              <label>
+                Assign Item
+                <select
+                  [value]="assignItemId()"
+                  [disabled]="itemsBusy() || assignableItems().length === 0"
+                  (change)="onAssignItemChange($event)"
+                >
+                  <option value="">Choose an Item…</option>
+                  @for (item of assignableItems(); track item.id) {
+                    <option [value]="item.id">
+                      {{ item.name }} — {{ itemAssignHint(item) }}
+                    </option>
+                  }
+                </select>
+              </label>
+              <button
+                type="button"
+                class="ps-page__assign-btn"
+                [disabled]="!assignItemId() || itemsBusy()"
+                (click)="linkItemToSelectedSlot()"
+              >
+                {{ itemsBusy() ? 'Linking…' : 'Link to this Slot' }}
+              </button>
+              @if (!itemsLoading() && assignableItems().length === 0) {
+                <p class="ps-page__note">
+                  No other Items at this Typical Location to assign.
+                </p>
+              }
             } @else if (selectedStructure(); as structure) {
               <h3>Structural drawing</h3>
               <p class="ps-page__note">

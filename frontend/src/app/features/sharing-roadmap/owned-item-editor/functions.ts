@@ -1,6 +1,9 @@
 import { Item, ItemInput, PlacementSurfaceDetail } from '../../../core/api/model';
 import { normalizeCategoryInput } from '../functions';
 
+/** Max soft-suggestion chips shown under free-text Typical Placement. */
+export const SOFT_SUGGESTION_LIMIT = 5;
+
 export interface ItemEditModel {
   readonly name: string;
   readonly description: string;
@@ -66,6 +69,27 @@ export const applyTypicalLocationSelection = (
   };
 };
 
+/**
+ * Link a Placement Slot. Existing free text stays as the optional note
+ * (Slot → Slot also keeps the note).
+ */
+export const applyPlacementSlotLink = (
+  model: ItemEditModel,
+  slotId: string,
+): ItemEditModel => ({
+  ...model,
+  placementSlotId: slotId,
+});
+
+/**
+ * Drop the Slot link. The note becomes free-text Typical Placement again
+ * (no confirm).
+ */
+export const applyPlacementSlotUnlink = (model: ItemEditModel): ItemEditModel => ({
+  ...model,
+  placementSlotId: '',
+});
+
 /** Label-first options for optional Slot linking, scoped to loaded Surfaces. */
 export const placementSlotOptions = (
   surfaces: readonly PlacementSurfaceDetail[],
@@ -87,5 +111,92 @@ export const placementSlotOptions = (
       left.label.localeCompare(right.label) ||
       left.surfaceName.localeCompare(right.surfaceName),
   );
+};
+
+/**
+ * Soft chips for upgrading free text to a Slot link.
+ * Prefers label/surface matches against free text; otherwise top label-sorted slots.
+ * Never includes the currently linked Slot; never forces a link.
+ */
+export const rankPlacementSlotSuggestions = (
+  options: readonly PlacementSlotOption[],
+  freeText: string,
+  selectedSlotId = '',
+  limit = SOFT_SUGGESTION_LIMIT,
+): readonly PlacementSlotOption[] => {
+  const candidates = options.filter((option) => option.id !== selectedSlotId);
+  if (candidates.length === 0 || limit <= 0) return [];
+
+  const query = freeText.trim().toLowerCase();
+  if (!query) return candidates.slice(0, limit);
+
+  const scored = candidates.map((option) => ({
+    option,
+    score: suggestionMatchScore(option, query),
+  }));
+  const matches = scored
+    .filter((entry) => entry.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.option.label.localeCompare(right.option.label) ||
+        left.option.surfaceName.localeCompare(right.option.surfaceName),
+    )
+    .map((entry) => entry.option);
+
+  if (matches.length > 0) return matches.slice(0, limit);
+  return candidates.slice(0, limit);
+};
+
+/** Filter the label-first picker by Slot label or Surface name. */
+export const filterPlacementSlotOptions = (
+  options: readonly PlacementSlotOption[],
+  query: string,
+): readonly PlacementSlotOption[] => {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return options;
+  return options.filter(
+    (option) =>
+      option.label.toLowerCase().includes(needle) ||
+      option.surfaceName.toLowerCase().includes(needle),
+  );
+};
+
+/**
+ * Keep a selected Slot visible in a filtered picker list even when the query
+ * does not match it (so the control never loses its current value).
+ */
+export const filteredPlacementSlotOptions = (
+  options: readonly PlacementSlotOption[],
+  query: string,
+  selectedSlotId = '',
+): readonly PlacementSlotOption[] => {
+  const filtered = filterPlacementSlotOptions(options, query);
+  if (!selectedSlotId || filtered.some((option) => option.id === selectedSlotId)) {
+    return filtered;
+  }
+  const selected = options.find((option) => option.id === selectedSlotId);
+  return selected ? [selected, ...filtered] : filtered;
+};
+
+/** Parent Placement Surface that owns a Slot (for light preview). */
+export const parentSurfaceForSlot = (
+  surfaces: readonly PlacementSurfaceDetail[],
+  slotId: string,
+): PlacementSurfaceDetail | null => {
+  if (!slotId) return null;
+  return surfaces.find((surface) => surface.slots.some((slot) => slot.id === slotId)) ?? null;
+};
+
+const suggestionMatchScore = (option: PlacementSlotOption, query: string): number => {
+  const label = option.label.toLowerCase();
+  const surface = option.surfaceName.toLowerCase();
+  if (label === query) return 100;
+  if (label.startsWith(query)) return 80;
+  if (label.includes(query)) return 60;
+  if (query.includes(label) && label.length >= 2) return 50;
+  if (surface.startsWith(query)) return 40;
+  if (surface.includes(query)) return 20;
+  return 0;
 };
 

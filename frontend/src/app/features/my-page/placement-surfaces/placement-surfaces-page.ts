@@ -11,14 +11,17 @@ import {
 import { FormField, form, maxLength, validate } from '@angular/forms/signals';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import {
-  PlacementSurfaceDetail,
-  PlacementSurfaceSummary,
-} from '../../../core/api/model';
+import { Item, PlacementSurfaceDetail, PlacementSurfaceSummary } from '../../../core/api/model';
+import { InventoryApi } from '../../../core/api/inventory-api.service';
 import { PlacementSurfacesApi } from '../../../core/api/placement-surfaces-api.service';
 import { TypicalLocationsApi } from '../../../core/api/typical-locations-api.service';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { MaterialSymbolIconComponent } from '../../../ui/material-symbol-icon/material-symbol-icon.component';
+import {
+  itemSlotAssignHint,
+  itemsAssignableToSlot,
+  itemsLinkedToSlot,
+} from './functions';
 import {
   DEFAULT_LINE_HALF_LENGTH_MM,
   DEFAULT_SLOT_HEIGHT_MM,
@@ -66,6 +69,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly #route = inject(ActivatedRoute);
   readonly #api = inject(PlacementSurfacesApi);
   readonly #locationsApi = inject(TypicalLocationsApi);
+  readonly #inventoryApi = inject(InventoryApi);
 
   // Angular forbids ES private on viewChild fields (NG1053).
   private readonly canvas = viewChild(SurfaceCanvas);
@@ -75,6 +79,8 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly surfaces = signal<readonly PlacementSurfaceSummary[]>([]);
   readonly activeSurfaceId = signal('');
   readonly detail = signal<PlacementSurfaceDetail | null>(null);
+  /** Owner inventory at this Typical Location (for canvas Slot assign). */
+  readonly locationItems = signal<readonly Item[]>([]);
   /** Slot id/label by surface — for location-wide uniqueness (not only active surface). */
   readonly #slotCatalog = signal<
     ReadonlyMap<string, readonly { readonly id: string; readonly label: string }[]>
@@ -83,9 +89,13 @@ export class PlacementSurfacesPage implements AfterViewInit {
   readonly selection = signal<Selection | null>(null);
   readonly loading = signal(true);
   readonly busy = signal(false);
+  readonly itemsBusy = signal(false);
+  readonly itemsLoading = signal(false);
   readonly error = signal('');
   readonly formError = signal('');
   readonly announcement = signal('');
+  /** Draft Item id for the compact assign control when a Slot is selected. */
+  readonly assignItemId = signal('');
 
   readonly surfaceModel = signal({ name: '' });
   readonly surfaceForm = form(this.surfaceModel, (path) => {
@@ -156,6 +166,18 @@ export class PlacementSurfacesPage implements AfterViewInit {
     return d.structuralDrawings.find((drawing) => drawing.id === sel.id) ?? null;
   });
 
+  readonly linkedItems = computed(() => {
+    const slot = this.selectedSlot();
+    if (!slot) return [];
+    return itemsLinkedToSlot(this.locationItems(), slot.id);
+  });
+
+  readonly assignableItems = computed(() => {
+    const slot = this.selectedSlot();
+    if (!slot) return [];
+    return itemsAssignableToSlot(this.locationItems(), slot.id);
+  });
+
   constructor() {
     effect(() => {
       const slot = this.selectedSlot();
@@ -172,6 +194,52 @@ export class PlacementSurfacesPage implements AfterViewInit {
       queueMicrotask(() => this.canvas()?.fitContent());
     });
     void this.#bootstrap();
+  }
+
+  itemAssignHint = itemSlotAssignHint;
+
+  onAssignItemChange(event: Event): void {
+    const select = event.target instanceof HTMLSelectElement ? event.target : null;
+    if (!select) return;
+    this.assignItemId.set(select.value);
+  }
+
+  async linkItemToSelectedSlot(): Promise<void> {
+    const slot = this.selectedSlot();
+    const itemId = this.assignItemId();
+    if (!slot || !itemId || this.itemsBusy()) return;
+    this.itemsBusy.set(true);
+    this.formError.set('');
+    try {
+      const response = await this.#inventoryApi.update(itemId, {
+        placementSlotId: slot.id,
+      });
+      this.#upsertLocationItem(response.item);
+      this.assignItemId.set('');
+      this.announcement.set(`Linked “${response.item.name}” to “${slot.label}”.`);
+    } catch {
+      this.formError.set('We could not link that Item to the Slot.');
+    } finally {
+      this.itemsBusy.set(false);
+    }
+  }
+
+  async unlinkItemFromSlot(item: Item): Promise<void> {
+    const slot = this.selectedSlot();
+    if (!slot || this.itemsBusy()) return;
+    this.itemsBusy.set(true);
+    this.formError.set('');
+    try {
+      const response = await this.#inventoryApi.update(item.id, {
+        placementSlotId: null,
+      });
+      this.#upsertLocationItem(response.item);
+      this.announcement.set(`Unlinked “${response.item.name}” from “${slot.label}”.`);
+    } catch {
+      this.formError.set('We could not unlink that Item from the Slot.');
+    } finally {
+      this.itemsBusy.set(false);
+    }
   }
 
   ngAfterViewInit(): void {
@@ -270,6 +338,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
 
   onSelectShape(selection: { kind: SelectableKind; id: string } | null): void {
     this.selection.set(selection);
+    this.assignItemId.set('');
     if (selection) this.tool.set('select');
   }
 
@@ -608,7 +677,7 @@ export class PlacementSurfacesPage implements AfterViewInit {
       }
       this.locationName.set(location.name);
       this.surfaces.set(surfacesResponse.placementSurfaces);
-      await this.#ensureSlotCatalog();
+      await Promise.all([this.#ensureSlotCatalog(), this.#loadLocationItems()]);
       if (surfacesResponse.placementSurfaces.length > 0) {
         await this.#loadDetail(surfacesResponse.placementSurfaces[0]!.id);
       }
@@ -617,6 +686,26 @@ export class PlacementSurfacesPage implements AfterViewInit {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  async #loadLocationItems(): Promise<void> {
+    this.itemsLoading.set(true);
+    try {
+      const response = await this.#inventoryApi.list(this.locationId());
+      this.locationItems.set(response.items);
+    } catch {
+      this.locationItems.set([]);
+    } finally {
+      this.itemsLoading.set(false);
+    }
+  }
+
+  #upsertLocationItem(item: Item): void {
+    this.locationItems.update((items) => {
+      const index = items.findIndex((entry) => entry.id === item.id);
+      if (index < 0) return [...items, item];
+      return items.map((entry) => (entry.id === item.id ? item : entry));
+    });
   }
 
   async #loadDetail(surfaceId: string): Promise<void> {

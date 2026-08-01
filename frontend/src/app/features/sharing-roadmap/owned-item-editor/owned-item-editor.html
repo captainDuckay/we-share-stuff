@@ -105,45 +105,94 @@
           Optional note for the linked Placement Slot (for example which side of the shelf).
         } @else {
           Free-text first: describe the exact shelf, bin, or other spot within the Typical Location.
-          You can optionally link a Placement Slot below.
+          You can optionally link a Placement Slot below — never required.
         }
       </p>
 
       @if (editModel().typicalLocationId) {
-        <label class="sharing-page__form-label">
-          Placement Slot (optional)
-          <select
-            class="sharing-page__form-control"
-            [formField]="editForm.placementSlotId"
-            [attr.aria-busy]="loadingSlots() ? 'true' : null"
-          >
-            <option value="">No Placement Slot — free text only</option>
-            @for (slot of slotOptions(); track slot.id) {
-              <option [value]="slot.id">{{ slot.label }} ({{ slot.surfaceName }})</option>
-            }
-          </select>
-        </label>
-        @if (loadingSlots()) {
-          <p class="sharing-page__meta" role="status">Loading Placement Slots…</p>
-        }
-        @if (editModel().placementSlotId) {
-          <div class="owned-item-editor__actions">
-            <button
-              class="sharing-page__button"
-              type="button"
-              (click)="unlinkPlacementSlot()"
+        <div class="owned-item-editor__slot-block">
+          @if (loadingSlots()) {
+            <p class="sharing-page__meta" role="status">Loading Placement Slots…</p>
+          }
+
+          @if (!loadingSlots() && softSuggestions().length > 0) {
+            <div
+              class="owned-item-editor__suggestions"
+              role="group"
+              aria-label="Suggested Placement Slots"
             >
-              Unlink Placement Slot
-            </button>
-          </div>
-          <p class="sharing-page__meta">
-            Unlinking keeps the note above as free-text Typical Placement.
-          </p>
-        } @else if (!loadingSlots() && slotOptions().length === 0) {
-          <p class="sharing-page__meta">
-            No Placement Slots on this Typical Location yet. Manage surfaces from My Page.
-          </p>
-        }
+              <p class="sharing-page__meta owned-item-editor__suggestions-label">
+                Suggested slots
+              </p>
+              <div class="owned-item-editor__chips">
+                @for (slot of softSuggestions(); track slot.id) {
+                  <button
+                    type="button"
+                    class="owned-item-editor__chip"
+                    (click)="linkPlacementSlot(slot.id)"
+                  >
+                    <span class="owned-item-editor__chip-label">{{ slot.label }}</span>
+                    <span class="owned-item-editor__chip-surface">{{ slot.surfaceName }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          @if (!loadingSlots() && slotOptions().length > 0) {
+            <label class="sharing-page__form-label">
+              Find Placement Slot
+              <input
+                class="sharing-page__form-control"
+                type="search"
+                [value]="slotPickerQuery()"
+                (input)="onSlotPickerQuery($event)"
+                placeholder="Filter by label or surface…"
+                autocomplete="off"
+                [attr.aria-controls]="'item-placement-slot'"
+              />
+            </label>
+            <label class="sharing-page__form-label" for="item-placement-slot">
+              Placement Slot (optional)
+              <select
+                id="item-placement-slot"
+                class="sharing-page__form-control"
+                [formField]="editForm.placementSlotId"
+                [attr.aria-busy]="loadingSlots() ? 'true' : null"
+              >
+                <option value="">No Placement Slot — free text only</option>
+                @for (slot of filteredSlotOptions(); track slot.id) {
+                  <option [value]="slot.id">{{ slot.label }} ({{ slot.surfaceName }})</option>
+                }
+              </select>
+            </label>
+          }
+
+          @if (editModel().placementSlotId) {
+            @if (linkedSurfacePreview(); as surface) {
+              <app-slot-surface-preview
+                [surface]="surface"
+                [highlightedSlotId]="editModel().placementSlotId"
+              />
+            }
+            <div class="owned-item-editor__actions">
+              <button
+                class="sharing-page__button"
+                type="button"
+                (click)="unlinkPlacementSlot()"
+              >
+                Unlink Placement Slot
+              </button>
+            </div>
+            <p class="sharing-page__meta">
+              Unlinking keeps the note above as free-text Typical Placement.
+            </p>
+          } @else if (!loadingSlots() && slotOptions().length === 0) {
+            <p class="sharing-page__meta">
+              No Placement Slots on this Typical Location yet. Manage surfaces from My Page.
+            </p>
+          }
+        </div>
       }
 
       <label class="sharing-page__form-label">

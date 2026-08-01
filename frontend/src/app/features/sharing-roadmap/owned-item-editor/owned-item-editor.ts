@@ -36,11 +36,17 @@ import {
 } from '../functions';
 import { OwnedItemSummary } from '../owned-item-summary/owned-item-summary';
 import {
+  applyPlacementSlotLink,
+  applyPlacementSlotUnlink,
   applyTypicalLocationSelection,
+  filteredPlacementSlotOptions,
   itemEditModel,
   itemUpdateInput,
+  parentSurfaceForSlot,
   placementSlotOptions,
+  rankPlacementSlotSuggestions,
 } from './functions';
+import { SlotSurfacePreview } from './slot-surface-preview/slot-surface-preview';
 
 const ITEM_NAME_MAX_LENGTH = 200;
 const ITEM_DESCRIPTION_MAX_LENGTH = 2_000;
@@ -48,7 +54,7 @@ const ITEM_PLACEMENT_MAX_LENGTH = 2_000;
 
 @Component({
   selector: 'app-owned-item-editor',
-  imports: [FormField, OwnedItemSummary],
+  imports: [FormField, OwnedItemSummary, SlotSurfacePreview],
   templateUrl: './owned-item-editor.html',
   styleUrl: './owned-item-editor.css',
 })
@@ -93,6 +99,8 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
   readonly photoError = signal('');
   readonly announcement = signal('');
   readonly slotClearedNotice = signal('');
+  /** Label-first picker filter (UI only; free text remains primary). */
+  readonly slotPickerQuery = signal('');
   readonly groups = signal<readonly SharingGroup[]>([]);
   readonly itemSharing = signal<readonly ItemSharing[]>([]);
   readonly shareReadiness = signal<ShareReadiness | null>(null);
@@ -122,6 +130,23 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
         : null;
     return placementSlotOptions(this.#locationSurfaces(), ensureSlot);
   });
+  readonly softSuggestions = computed(() =>
+    rankPlacementSlotSuggestions(
+      this.slotOptions(),
+      this.editModel().typicalPlacement,
+      this.editModel().placementSlotId,
+    ),
+  );
+  readonly filteredSlotOptions = computed(() =>
+    filteredPlacementSlotOptions(
+      this.slotOptions(),
+      this.slotPickerQuery(),
+      this.editModel().placementSlotId,
+    ),
+  );
+  readonly linkedSurfacePreview = computed(() =>
+    parentSurfaceForSlot(this.#locationSurfaces(), this.editModel().placementSlotId),
+  );
   /** Location id before the latest location control change (for slot auto-clear). */
   #committedLocationId = '';
   /** In-memory cache so re-open / re-select does not flash network round-trips. */
@@ -154,6 +179,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.editing.set(true);
     this.announcement.set('');
     this.slotClearedNotice.set('');
+    this.slotPickerQuery.set('');
     this.#slotPickerLocationId.set(this.editModel().typicalLocationId);
   }
 
@@ -163,6 +189,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.cancelPhotoSelection();
     this.error.set('');
     this.slotClearedNotice.set('');
+    this.slotPickerQuery.set('');
     this.editing.set(false);
     this.#slotPickerLocationId.set('');
   }
@@ -178,11 +205,24 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
     this.editModel.set(result.model);
     this.#committedLocationId = result.model.typicalLocationId;
     this.slotClearedNotice.set(result.slotClearedNotice ?? '');
+    this.slotPickerQuery.set('');
     this.#slotPickerLocationId.set(result.model.typicalLocationId);
   }
 
+  onSlotPickerQuery(event: Event): void {
+    const input = event.target instanceof HTMLInputElement ? event.target : null;
+    if (!input) return;
+    this.slotPickerQuery.set(input.value);
+  }
+
+  linkPlacementSlot(slotId: string): void {
+    if (!slotId) return;
+    this.editModel.update((model) => applyPlacementSlotLink(model, slotId));
+    this.slotClearedNotice.set('');
+  }
+
   unlinkPlacementSlot(): void {
-    this.editModel.update((model) => ({ ...model, placementSlotId: '' }));
+    this.editModel.update((model) => applyPlacementSlotUnlink(model));
     this.slotClearedNotice.set('');
   }
 
@@ -371,6 +411,7 @@ export class OwnedItemEditor implements OnDestroy, OnInit {
       this.itemUpdated.emit(response.item);
       this.announcement.set('Item updated.');
       this.slotClearedNotice.set('');
+      this.slotPickerQuery.set('');
       this.editing.set(false);
       this.#slotPickerLocationId.set('');
       // Typical Location may have changed share readiness.
