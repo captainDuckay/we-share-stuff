@@ -25,6 +25,10 @@ export class MyStuffPageComponent {
     this.#route.queryParamMap.pipe(map((params) => params.get('typicalLocationId') ?? '')),
     { initialValue: this.#route.snapshot.queryParamMap.get('typicalLocationId') ?? '' },
   );
+  readonly placementSlotId = toSignal(
+    this.#route.queryParamMap.pipe(map((params) => params.get('placementSlotId') ?? '')),
+    { initialValue: this.#route.snapshot.queryParamMap.get('placementSlotId') ?? '' },
+  );
   readonly items = signal<readonly Item[]>([]);
   readonly approvals = signal<readonly Reservation[]>([]);
   readonly proposals = signal<readonly ReservationChangeProposal[]>([]);
@@ -34,6 +38,7 @@ export class MyStuffPageComponent {
   constructor() {
     effect(() => {
       this.typicalLocationId();
+      this.placementSlotId();
       void this.load();
     });
   }
@@ -43,7 +48,10 @@ export class MyStuffPageComponent {
     this.error.set('');
     try {
       const [items, received] = await Promise.all([
-        this.#inventoryApi.list(this.typicalLocationId()),
+        this.#inventoryApi.list({
+          typicalLocationId: this.typicalLocationId() || undefined,
+          placementSlotId: this.placementSlotId() || undefined,
+        }),
         this.#sharingApi.listReservations('received'),
       ]);
       if (generation !== this.#loadGeneration) return;

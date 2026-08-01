@@ -481,3 +481,66 @@ def test_list_items_includes_linked_slot_summary(client: TestClient) -> None:
     assert items[0]["placementSlotId"] == slot["id"]
     assert items[0]["placementSlot"]["label"] == "Shelf A"
     assert items[0]["typicalPlacement"] == "note"
+
+
+def test_list_items_filters_by_placement_slot_id(client: TestClient) -> None:
+    owner = register_user(client, "list-by-slot@example.com")
+    headers = use_session(client, owner)
+    location = create_location(client, headers)
+    _, slot_a = create_surface_with_slot(
+        client, headers, location["id"], slot_label="Slot A"
+    )
+    _, slot_b = create_surface_with_slot(
+        client,
+        headers,
+        location["id"],
+        surface_name="Other wall",
+        slot_label="Slot B",
+    )
+
+    client.post(
+        "/api/items",
+        headers=headers,
+        json={
+            "name": "On A",
+            "typicalLocationId": location["id"],
+            "placementSlotId": slot_a["id"],
+        },
+    )
+    client.post(
+        "/api/items",
+        headers=headers,
+        json={
+            "name": "On B",
+            "typicalLocationId": location["id"],
+            "placementSlotId": slot_b["id"],
+        },
+    )
+    client.post(
+        "/api/items",
+        headers=headers,
+        json={"name": "Unlinked", "typicalLocationId": location["id"]},
+    )
+
+    filtered = client.get(
+        "/api/items",
+        headers=headers,
+        params={"placementSlotId": slot_a["id"]},
+    )
+    assert filtered.status_code == 200
+    items = filtered.json()["items"]
+    assert len(items) == 1
+    assert items[0]["name"] == "On A"
+    assert items[0]["placementSlotId"] == slot_a["id"]
+
+    with_location = client.get(
+        "/api/items",
+        headers=headers,
+        params={
+            "typicalLocationId": location["id"],
+            "placementSlotId": slot_b["id"],
+        },
+    )
+    assert with_location.status_code == 200
+    assert len(with_location.json()["items"]) == 1
+    assert with_location.json()["items"][0]["name"] == "On B"

@@ -668,6 +668,7 @@ class PlacementSlotPatch(StrictModel):
     label: Annotated[
         str | None, Field(default=None, max_length=SLOT_LABEL_MAX_LENGTH)
     ] = None
+    surface_id: UUID | None = Field(default=None, validation_alias="surfaceId")
     x: float | None = None
     y: float | None = None
     width: Annotated[float | None, Field(default=None, gt=0)] = None

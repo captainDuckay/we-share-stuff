@@ -170,6 +170,7 @@ async def list_items(
     db: DatabaseSession,
     current: CurrentSessionDependency,
     typical_location_id: UUID | None = Query(default=None, alias="typicalLocationId"),
+    placement_slot_id: UUID | None = Query(default=None, alias="placementSlotId"),
 ) -> ItemsEnvelope:
     query = (
         select(Item)
@@ -179,6 +180,8 @@ async def list_items(
     )
     if typical_location_id is not None:
         query = query.where(Item.typical_location_id == typical_location_id)
+    if placement_slot_id is not None:
+        query = query.where(Item.placement_slot_id == placement_slot_id)
     result = await db.scalars(query)
     return ItemsEnvelope(items=[await item_response(db, item) for item in result])
 

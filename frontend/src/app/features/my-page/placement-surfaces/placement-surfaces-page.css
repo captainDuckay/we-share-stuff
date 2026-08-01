@@ -204,6 +204,26 @@
   margin: 0;
 }
 
+.ps-page__blocked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin: 0;
+  padding: var(--space-2, 0.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 0.375rem);
+  background: light-dark(oklch(97% 0.02 85), oklch(22% 0.02 60));
+  font-size: 0.9rem;
+}
+
+.ps-page__reparent {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  font: inherit;
+}
+
 .ps-page__danger-btn {
   font: inherit;
   align-self: start;

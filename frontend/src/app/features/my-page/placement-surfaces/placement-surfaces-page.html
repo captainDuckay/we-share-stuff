@@ -164,6 +164,24 @@
                   </label>
                 </div>
               </fieldset>
+              @if (reparentTargets().length > 0) {
+                <label>
+                  Move to surface
+                  <select
+                    class="ps-page__reparent"
+                    [disabled]="busy()"
+                    (change)="onReparentSelect($event)"
+                  >
+                    <option value="" selected>Choose surface…</option>
+                    @for (target of reparentTargets(); track target.id) {
+                      <option [value]="target.id">{{ target.name }}</option>
+                    }
+                  </select>
+                </label>
+                <p class="ps-page__note">
+                  Re-parent keeps the Slot id and Item links; geometry travels as-is.
+                </p>
+              }
               <p class="ps-page__note">
                 Width/height fields are the same values as the canvas rectangle. Stable id:
                 <code>{{ slot.id }}</code>
@@ -238,6 +256,15 @@
 
             @if (formError()) {
               <p class="ps-page__error" role="alert">{{ formError() }}</p>
+            }
+            @if (blockedDelete(); as blocked) {
+              <p class="ps-page__blocked" role="status">
+                <span>
+                  {{ blocked.linkedItemCount }}
+                  {{ blocked.linkedItemCount === 1 ? 'Item' : 'Items' }} linked.
+                </span>
+                <a routerLink="/my-stuff" [queryParams]="viewItemsLinkParams()">View items</a>
+              </p>
             }
           </aside>
         </div>
