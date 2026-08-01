@@ -95,3 +95,7 @@ _Avoid_: Booking, rental, planned location
 **Borrowing**:
 Temporary use of a Shared Item by a User other than the owning User, without payment.
 _Avoid_: Rental, sale, purchase
+
+**Notification**:
+A server-persisted record in one User's durable inbox that refers to a domain event involving existing concepts (for example an Invitation or Reservation Request). It is a separate projection for that recipient, not a second name for the underlying Invitation, Reservation Request, Reservation Change Proposal, or Member. A Notification is created Unread and becomes Read when the User marks it read; Unread and Read are the only attention states for this entity.
+_Avoid_: Alert, message, toast, push notification, email, attention item (as the entity name), seen, unseen, dismissed, archived (as synonyms for Unread/Read)
