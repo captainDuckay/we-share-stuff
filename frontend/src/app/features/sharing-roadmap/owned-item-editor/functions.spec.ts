@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { Item, PlacementSurfaceDetail } from '../../../core/api/model';
 import {
+  applyPlacementSlotLink,
+  applyPlacementSlotUnlink,
   applyTypicalLocationSelection,
+  filterPlacementSlotOptions,
+  filteredPlacementSlotOptions,
   itemEditModel,
   itemUpdateInput,
+  parentSurfaceForSlot,
   placementSlotOptions,
+  rankPlacementSlotSuggestions,
 } from './functions';
 
 const ITEM: Item = {
@@ -208,5 +214,76 @@ describe('owned Item editing', () => {
         surfaceName: 'Garage wall',
       }),
     ).toEqual([{ id: 'slot-current', label: 'Shelf A', surfaceName: 'Garage wall' }]);
+  });
+
+  it('links a Slot and keeps free text as the note', () => {
+    const model = applyPlacementSlotLink(
+      {
+        name: 'Drill',
+        description: '',
+        typicalLocationId: 'loc-1',
+        typicalPlacement: 'behind paint',
+        placementSlotId: '',
+        categories: '',
+      },
+      'slot-a',
+    );
+    expect(model.placementSlotId).toBe('slot-a');
+    expect(model.typicalPlacement).toBe('behind paint');
+  });
+
+  it('unlinks a Slot and keeps the note as free text', () => {
+    const model = applyPlacementSlotUnlink({
+      name: 'Drill',
+      description: '',
+      typicalLocationId: 'loc-1',
+      typicalPlacement: 'behind paint',
+      placementSlotId: 'slot-a',
+      categories: '',
+    });
+    expect(model.placementSlotId).toBe('');
+    expect(model.typicalPlacement).toBe('behind paint');
+  });
+
+  it('ranks soft suggestions by free-text match and excludes the linked Slot', () => {
+    const options = placementSlotOptions(SURFACES);
+    expect(rankPlacementSlotSuggestions(options, 'Bin 2')).toEqual([
+      { id: 'slot-b', label: 'Bin 2', surfaceName: 'Workshop wall' },
+    ]);
+    expect(
+      rankPlacementSlotSuggestions(options, '', 'slot-a').map((entry) => entry.id),
+    ).toEqual(['slot-b']);
+  });
+
+  it('falls back to label order when free text matches nothing', () => {
+    const options = placementSlotOptions(SURFACES);
+    expect(rankPlacementSlotSuggestions(options, 'zzzz').map((entry) => entry.id)).toEqual([
+      'slot-a',
+      'slot-b',
+    ]);
+  });
+
+  it('filters the picker by Slot label or Surface name', () => {
+    const options = placementSlotOptions(SURFACES);
+    expect(filterPlacementSlotOptions(options, 'workshop')).toEqual([
+      { id: 'slot-b', label: 'Bin 2', surfaceName: 'Workshop wall' },
+    ]);
+    expect(filterPlacementSlotOptions(options, 'bin 1')).toEqual([
+      { id: 'slot-a', label: 'Bin 1', surfaceName: 'Garage wall' },
+    ]);
+  });
+
+  it('keeps the selected Slot visible when the picker filter excludes it', () => {
+    const options = placementSlotOptions(SURFACES);
+    expect(filteredPlacementSlotOptions(options, 'workshop', 'slot-a')).toEqual([
+      { id: 'slot-a', label: 'Bin 1', surfaceName: 'Garage wall' },
+      { id: 'slot-b', label: 'Bin 2', surfaceName: 'Workshop wall' },
+    ]);
+  });
+
+  it('finds the parent Surface for a Slot preview', () => {
+    expect(parentSurfaceForSlot(SURFACES, 'slot-b')?.id).toBe('surface-b');
+    expect(parentSurfaceForSlot(SURFACES, '')).toBeNull();
+    expect(parentSurfaceForSlot(SURFACES, 'missing')).toBeNull();
   });
 });

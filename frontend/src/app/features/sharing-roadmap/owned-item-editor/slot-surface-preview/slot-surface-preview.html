@@ -1,0 +1,58 @@
+<figure class="slot-surface-preview">
+  <figcaption class="slot-surface-preview__caption">
+    {{ surface().name }}
+    <span class="slot-surface-preview__hint">Slot preview</span>
+  </figcaption>
+  <svg
+    class="slot-surface-preview__canvas"
+    [attr.viewBox]="viewBox()"
+    preserveAspectRatio="xMidYMid meet"
+    role="img"
+    [attr.aria-label]="
+      'Placement Surface ' + surface().name + ', linked slot highlighted'
+    "
+  >
+    <g class="slot-surface-preview__structure" aria-hidden="true">
+      @for (shape of scene().structures; track shape.id) {
+        @if (shape.kind === 'structure-rect') {
+          <rect
+            class="slot-surface-preview__struct-rect"
+            [attr.x]="shape.x"
+            [attr.y]="shape.y"
+            [attr.width]="shape.width"
+            [attr.height]="shape.height"
+          />
+        } @else {
+          <polyline
+            class="slot-surface-preview__struct-line"
+            [attr.points]="linePoints(shape.points)"
+          />
+        }
+      }
+    </g>
+    <g class="slot-surface-preview__slots">
+      @for (slot of scene().slots; track slot.id) {
+        <g
+          class="slot-surface-preview__slot"
+          [class.slot-surface-preview__slot--target]="slot.id === highlightedSlotId()"
+          [class.slot-surface-preview__slot--quiet]="slot.id !== highlightedSlotId()"
+        >
+          <rect
+            [attr.x]="slot.x"
+            [attr.y]="slot.y"
+            [attr.width]="slot.width"
+            [attr.height]="slot.height"
+          />
+          <text
+            [attr.x]="slot.x + slot.width / 2"
+            [attr.y]="slot.y + slot.height / 2"
+            text-anchor="middle"
+            dominant-baseline="middle"
+          >
+            {{ slot.label }}
+          </text>
+        </g>
+      }
+    </g>
+  </svg>
+</figure>
