@@ -212,171 +212,165 @@
   }
 </app-page-layout>
 
-@if (selected(); as trip) {
-  @let ownerProposal = pendingProposalFromOther(trip);
-  @let myProposal = pendingProposalByMe(trip);
-  <div class="my-res-modal-root" role="presentation">
-    <button
-      type="button"
-      class="my-res-modal-backdrop"
-      aria-label="Close trip detail"
-      (click)="closeDetail()"
-    ></button>
-    <aside
-      class="my-res-modal"
-      role="dialog"
-      aria-modal="true"
-      [attr.aria-labelledby]="dialogTitleId"
-    >
-      <header class="my-res-modal__head">
-        <div>
-          <p class="my-res-modal__kicker">Trip detail</p>
-          <h2 [id]="dialogTitleId">{{ trip.item.name }}</h2>
-        </div>
-        <button class="my-res__btn" type="button" (click)="closeDetail()">Close</button>
-      </header>
+<dialog
+  app-dialog
+  class="my-res-modal"
+  closedby="any"
+  [appDialogOpen]="selectedId() !== null"
+  (appDialogClosed)="onDetailClosed()"
+  [attr.aria-labelledby]="dialogTitleId"
+>
+  @if (selected(); as trip) {
+    @let ownerProposal = pendingProposalFromOther(trip);
+    @let myProposal = pendingProposalByMe(trip);
+    <header class="my-res-modal__head">
+      <div>
+        <p class="my-res-modal__kicker">Trip detail</p>
+        <h2 [id]="dialogTitleId">{{ trip.item.name }}</h2>
+      </div>
+      <button class="my-res__btn" type="button" (click)="requestCloseDetail()">Close</button>
+    </header>
 
-      @if (actionError()) {
-        <p class="my-res__error" role="alert">{{ actionError() }}</p>
-      }
+    @if (actionError()) {
+      <p class="my-res__error" role="alert">{{ actionError() }}</p>
+    }
 
-      <dl class="my-res-modal__dl">
+    <dl class="my-res-modal__dl">
+      <div>
+        <dt>Owner</dt>
+        <dd class="my-res__person">
+          <app-user-avatar
+            [displayName]="ownerName(trip)"
+            [photoUrl]="trip.item.owner.profilePhotoUrl"
+          />
+          {{ ownerName(trip) }}
+        </dd>
+      </div>
+      <div>
+        <dt>Status</dt>
+        <dd>{{ statusLabel(trip) }}</dd>
+      </div>
+      <div>
+        <dt>When</dt>
+        <dd>{{ rangeLabel(trip) }}</dd>
+      </div>
+      <div>
+        <dt>Typical Location</dt>
+        <dd>{{ locationName(trip) }}</dd>
+      </div>
+      @if (listPlacementPath(trip); as path) {
         <div>
-          <dt>Owner</dt>
-          <dd class="my-res__person">
-            <app-user-avatar
-              [displayName]="ownerName(trip)"
-              [photoUrl]="trip.item.owner.profilePhotoUrl"
-            />
-            {{ ownerName(trip) }}
-          </dd>
-        </div>
-        <div>
-          <dt>Status</dt>
-          <dd>{{ statusLabel(trip) }}</dd>
-        </div>
-        <div>
-          <dt>When</dt>
-          <dd>{{ rangeLabel(trip) }}</dd>
-        </div>
-        <div>
-          <dt>Typical Location</dt>
-          <dd>{{ locationName(trip) }}</dd>
-        </div>
-        @if (listPlacementPath(trip); as path) {
-          <div>
-            <dt>Typical Placement</dt>
-            <dd>{{ path }}</dd>
-          </div>
-        }
-        <div>
-          <dt>Sharing Group</dt>
-          <dd>{{ trip.sharingGroup.name }}</dd>
-        </div>
-      </dl>
-
-      @if (structuredPlacement(trip); as snapshot) {
-        <div class="my-res-modal__diagram">
-          <app-placement-snapshot-diagram [snapshot]="snapshot" />
+          <dt>Typical Placement</dt>
+          <dd>{{ path }}</dd>
         </div>
       }
+      <div>
+        <dt>Sharing Group</dt>
+        <dd>{{ trip.sharingGroup.name }}</dd>
+      </div>
+    </dl>
 
-      <p class="my-res__muted">
-        <a [routerLink]="['/shared-items', trip.item.id]">View shared Item</a>
-        <span> — frozen placement lives on this Reservation, not live Item placement.</span>
-      </p>
+    @if (structuredPlacement(trip); as snapshot) {
+      <div class="my-res-modal__diagram">
+        <app-placement-snapshot-diagram [snapshot]="snapshot" />
+      </div>
+    }
 
-      @if (ownerProposal; as proposal) {
-        <div class="my-res-modal__proposal">
-          <p>
-            Current:
-            <span class="my-res__strike">{{ rangeLabel(trip) }}</span>
-          </p>
-          <p>
-            Proposed: <strong>{{ proposalRangeLabel(proposal) }}</strong>
-          </p>
-          <div class="my-res__actions">
-            <button
-              class="my-res__btn my-res__btn--primary"
-              type="button"
-              [disabled]="actionBusy()"
-              (click)="approve(proposal, true)"
-            >
-              Accept change
-            </button>
-            <button
-              class="my-res__btn"
-              type="button"
-              [disabled]="actionBusy()"
-              (click)="reject(proposal, true)"
-            >
-              Reject change
-            </button>
-          </div>
-        </div>
-      }
+    <p class="my-res__muted">
+      <a [routerLink]="['/shared-items', trip.item.id]">View shared Item</a>
+      <span> — frozen placement lives on this Reservation, not live Item placement.</span>
+    </p>
 
-      @if (canPropose(trip)) {
-        <form class="my-res-modal__propose" (submit)="$event.preventDefault(); submitPropose()">
-          <p class="my-res-modal__propose-title">Propose change</p>
-          <label class="my-res__field">
-            Proposed start
-            <input type="datetime-local" [formField]="proposeForm.startLocal" />
-          </label>
-          <label class="my-res__field">
-            Proposed end
-            <input type="datetime-local" [formField]="proposeForm.endLocal" />
-          </label>
-          @if (proposeForm.startLocal().touched() && proposeForm.startLocal().errors().length) {
-            <p class="my-res__error" role="alert">
-              {{ proposeForm.startLocal().errors()[0].message }}
-            </p>
-          }
-          @if (proposeForm.endLocal().touched() && proposeForm.endLocal().errors().length) {
-            <p class="my-res__error" role="alert">
-              {{ proposeForm.endLocal().errors()[0].message }}
-            </p>
-          }
-          <button class="my-res__btn my-res__btn--primary" type="submit" [disabled]="actionBusy()">
-            Propose change
+    @if (ownerProposal; as proposal) {
+      <div class="my-res-modal__proposal">
+        <p>
+          Current:
+          <span class="my-res__strike">{{ rangeLabel(trip) }}</span>
+        </p>
+        <p>
+          Proposed: <strong>{{ proposalRangeLabel(proposal) }}</strong>
+        </p>
+        <div class="my-res__actions">
+          <button
+            class="my-res__btn my-res__btn--primary"
+            type="button"
+            [disabled]="actionBusy()"
+            (click)="approve(proposal, true)"
+          >
+            Accept change
           </button>
-        </form>
-      }
+          <button
+            class="my-res__btn"
+            type="button"
+            [disabled]="actionBusy()"
+            (click)="reject(proposal, true)"
+          >
+            Reject change
+          </button>
+        </div>
+      </div>
+    }
 
-      @if (canWithdraw(trip) && !ownerProposal) {
-        <button
-          class="my-res__btn"
-          type="button"
-          [disabled]="actionBusy()"
-          (click)="withdraw(trip, true)"
-        >
-          Withdraw
+    @if (canPropose(trip)) {
+      <form class="my-res-modal__propose" (submit)="$event.preventDefault(); submitPropose()">
+        <p class="my-res-modal__propose-title">Propose change</p>
+        <label class="my-res__field">
+          Proposed start
+          <input type="datetime-local" [formField]="proposeForm.startLocal" />
+        </label>
+        <label class="my-res__field">
+          Proposed end
+          <input type="datetime-local" [formField]="proposeForm.endLocal" />
+        </label>
+        @if (proposeForm.startLocal().touched() && proposeForm.startLocal().errors().length) {
+          <p class="my-res__error" role="alert">
+            {{ proposeForm.startLocal().errors()[0].message }}
+          </p>
+        }
+        @if (proposeForm.endLocal().touched() && proposeForm.endLocal().errors().length) {
+          <p class="my-res__error" role="alert">
+            {{ proposeForm.endLocal().errors()[0].message }}
+          </p>
+        }
+        <button class="my-res__btn my-res__btn--primary" type="submit" [disabled]="actionBusy()">
+          Propose change
         </button>
-      }
-      @if (canCancel(trip) && !ownerProposal) {
-        <button
-          class="my-res__btn"
-          type="button"
-          [disabled]="actionBusy()"
-          (click)="cancel(trip, true)"
-        >
-          Cancel Reservation
-        </button>
-      }
-      @if (myProposal; as proposal) {
-        <button
-          class="my-res__btn"
-          type="button"
-          [disabled]="actionBusy()"
-          (click)="withdrawProposal(proposal, true)"
-        >
-          Withdraw proposal
-        </button>
-      }
+      </form>
+    }
 
-      @if (isHistoryOnly(trip)) {
-        <p class="my-res__muted">This is history only — no further actions on this trip.</p>
-      }
-    </aside>
-  </div>
-}
+    @if (canWithdraw(trip) && !ownerProposal) {
+      <button
+        class="my-res__btn"
+        type="button"
+        [disabled]="actionBusy()"
+        (click)="withdraw(trip, true)"
+      >
+        Withdraw
+      </button>
+    }
+    @if (canCancel(trip) && !ownerProposal) {
+      <button
+        class="my-res__btn"
+        type="button"
+        [disabled]="actionBusy()"
+        (click)="cancel(trip, true)"
+      >
+        Cancel Reservation
+      </button>
+    }
+    @if (myProposal; as proposal) {
+      <button
+        class="my-res__btn"
+        type="button"
+        [disabled]="actionBusy()"
+        (click)="withdrawProposal(proposal, true)"
+      >
+        Withdraw proposal
+      </button>
+    }
+
+    @if (isHistoryOnly(trip)) {
+      <p class="my-res__muted">This is history only — no further actions on this trip.</p>
+    }
+  }
+</dialog>

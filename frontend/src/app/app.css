@@ -1,3 +1,7 @@
+.app__shell {
+  display: contents;
+}
+
 .app__header {
   display: flex;
   gap: var(--space-4);
