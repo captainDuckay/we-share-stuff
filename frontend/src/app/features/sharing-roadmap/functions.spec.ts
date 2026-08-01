@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { ShareReadiness, TypicalPlacementVisibility } from '../../core/api/model';
 import {
+  Reservation,
+  ReservationChangeProposal,
+  ShareReadiness,
+  TypicalPlacementVisibility,
+} from '../../core/api/model';
+import {
+  borrowerListPlacementPath,
+  borrowerReservationStatusLabel,
   canShareItem,
   canonicalCategoryName,
   DEFAULT_ITEM_ICON,
   DEFAULT_SHARING_GROUP_ICON,
   compactCategoryLabels,
+  defaultReservationsTab,
   displayCategoryName,
   filterSharedItems,
   formatLocationLocalRange,
@@ -17,9 +25,11 @@ import {
   normalizeInvitationInput,
   normalizeReservationRequest,
   normalizeTypicalLocationInput,
+  pendingProposalForReservation,
   photoInputError,
   remainingMemberCount,
   reservationEndTimeError,
+  reservationsNeedingBorrowerResponse,
   reservationStartTimeError,
   shareReadinessLabel,
   sharingGroupPhotoInputError,
@@ -280,6 +290,185 @@ describe('Reservation display helpers', () => {
       }),
     ).toBe('Typical Placement: Garage wall → Shelf A (behind paint)');
   });
+
+  it('lands on Upcoming, else Pending, else Past', () => {
+    expect(defaultReservationsTab(2, 1)).toBe('upcoming');
+    expect(defaultReservationsTab(0, 3)).toBe('pending');
+    expect(defaultReservationsTab(0, 0)).toBe('past');
+  });
+
+  it('shows list placement path only when revealed', () => {
+    expect(
+      borrowerListPlacementPath({ visible: false, value: 'secret', structured: null }),
+    ).toBeNull();
+    expect(borrowerListPlacementPath({ visible: true, value: null, structured: null })).toBe(
+      'No Typical Placement has been noted.',
+    );
+    expect(borrowerListPlacementPath({ visible: true, value: 'Blue bin', structured: null })).toBe(
+      'Blue bin',
+    );
+    expect(
+      borrowerListPlacementPath({
+        visible: true,
+        value: 'note',
+        structured: {
+          surfaceName: 'Garage wall',
+          slotLabel: 'Shelf A',
+          note: 'note',
+          targetSlot: {
+            id: 's1',
+            label: 'Shelf A',
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 80,
+          },
+          otherSlots: [],
+          structuralDrawings: [],
+        },
+      }),
+    ).toBe('Garage wall → Shelf A (note)');
+  });
+
+  it('labels borrower trip statuses in plain language', () => {
+    const now = new Date('2026-08-01T12:00:00Z');
+    const base = sampleReservation({
+      status: 'pending',
+      startAt: '2026-08-10T08:00:00Z',
+      endAt: '2026-08-10T12:00:00Z',
+    });
+    expect(
+      borrowerReservationStatusLabel(base, {
+        ownerDisplayName: 'Mira',
+        now,
+      }),
+    ).toBe('Pending — waiting on Mira');
+    expect(
+      borrowerReservationStatusLabel(base, {
+        ownerDisplayName: 'Mira',
+        pendingByMe: true,
+        now,
+      }),
+    ).toBe('Pending — you proposed new dates');
+    expect(
+      borrowerReservationStatusLabel(
+        { ...base, status: 'accepted' },
+        { ownerDisplayName: 'Mira', pendingFromOwner: true, now },
+      ),
+    ).toBe('Accepted — owner proposed new dates');
+    expect(
+      borrowerReservationStatusLabel(
+        {
+          ...base,
+          status: 'accepted',
+          startAt: '2026-08-01T10:00:00Z',
+          endAt: '2026-08-01T18:00:00Z',
+        },
+        { ownerDisplayName: 'Mira', now },
+      ),
+    ).toBe('Accepted — borrow window open');
+    expect(
+      borrowerReservationStatusLabel(
+        {
+          ...base,
+          status: 'accepted',
+          startAt: '2026-07-01T10:00:00Z',
+          endAt: '2026-07-01T18:00:00Z',
+        },
+        { ownerDisplayName: 'Mira', now },
+      ),
+    ).toBe('Past — completed');
+    expect(
+      borrowerReservationStatusLabel(
+        { ...base, status: 'declined' },
+        { ownerDisplayName: 'Mira', now },
+      ),
+    ).toBe('Declined');
+  });
+
+  it('finds pending proposals and needs-response rows for the borrower', () => {
+    const reservation = sampleReservation({ id: 'r1', status: 'accepted' });
+    const fromOwner = sampleProposal({
+      id: 'p1',
+      reservationId: 'r1',
+      proposedById: 'owner-1',
+    });
+    const byMe = sampleProposal({
+      id: 'p2',
+      reservationId: 'r1',
+      proposedById: 'borrower-1',
+    });
+    expect(pendingProposalForReservation([fromOwner], 'r1', 'borrower-1', 'other')).toEqual(
+      fromOwner,
+    );
+    expect(pendingProposalForReservation([byMe], 'r1', 'borrower-1', 'me')).toEqual(byMe);
+    expect(reservationsNeedingBorrowerResponse([reservation], [fromOwner], 'borrower-1')).toEqual([
+      reservation,
+    ]);
+    expect(reservationsNeedingBorrowerResponse([reservation], [byMe], 'borrower-1')).toEqual([]);
+  });
+});
+
+const sampleReservation = (
+  overrides: Partial<Reservation> & Pick<Reservation, 'status'>,
+): Reservation => ({
+  id: 'r1',
+  sharingGroup: { id: 'g1', name: 'Friends' },
+  item: {
+    id: 'i1',
+    name: 'Ladder',
+    owner: {
+      id: 'owner-1',
+      displayName: 'Mira',
+      profilePhotoUrl: null,
+    },
+    photoUrl: null,
+    typicalLocation: {
+      id: 'loc1',
+      name: 'Garage',
+      details: null,
+      timezone: 'Europe/Copenhagen',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    },
+    typicalPlacement: { visible: false, value: null, structured: null },
+  },
+  requester: {
+    id: 'borrower-1',
+    displayName: 'Skipper',
+    profilePhotoUrl: null,
+  },
+  startLocal: '2026-08-10T10:00',
+  endLocal: '2026-08-10T12:00',
+  startAt: '2026-08-10T08:00:00Z',
+  endAt: '2026-08-10T10:00:00Z',
+  timezone: 'Europe/Copenhagen',
+  createdAt: '2026-07-01T00:00:00Z',
+  decidedAt: null,
+  conflictsWithAcceptedReservation: false,
+  ...overrides,
+});
+
+const sampleProposal = (input: {
+  id: string;
+  reservationId: string;
+  proposedById: string;
+}): ReservationChangeProposal => ({
+  id: input.id,
+  reservation: sampleReservation({ id: input.reservationId, status: 'accepted' }),
+  proposedBy: {
+    id: input.proposedById,
+    displayName: 'Someone',
+    profilePhotoUrl: null,
+  },
+  status: 'pending',
+  startLocal: '2026-08-11T10:00',
+  endLocal: '2026-08-11T12:00',
+  startAt: '2026-08-11T08:00:00Z',
+  endAt: '2026-08-11T10:00:00Z',
+  timezone: 'Europe/Copenhagen',
+  createdAt: '2026-07-02T00:00:00Z',
+  decidedAt: null,
 });
 
 describe('Invitation inputs', () => {

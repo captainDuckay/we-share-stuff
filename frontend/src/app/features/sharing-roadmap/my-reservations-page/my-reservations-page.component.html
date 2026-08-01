@@ -1,61 +1,382 @@
-<app-page-layout pageTitle="My reservations">
+<app-page-layout
+  pageTitle="My reservations"
+  description="Your borrow trips and open Reservation Requests."
+>
   @if (loading()) {
     <p role="status">Loading My reservations…</p>
   }
+
   @if (error()) {
-    <p class="sharing-page__error" role="alert">
+    <p class="my-res__error" role="alert">
       {{ error() }}
-      <button class="sharing-page__button" type="button" (click)="load()">Retry</button>
+      <button class="my-res__btn" type="button" (click)="load()">Retry</button>
     </p>
   }
-  <nav class="sharing-page__tabs" aria-label="My reservations tabs">
-    <button
-      class="sharing-page__button sharing-page__tab-button"
-      type="button"
-      [class.sharing-page__active]="tab() === 'upcoming'"
-      (click)="tab.set('upcoming')"
-    >
-      Upcoming ({{ upcoming().length }})
-    </button>
-    <button
-      class="sharing-page__button sharing-page__tab-button"
-      type="button"
-      [class.sharing-page__active]="tab() === 'pending'"
-      (click)="tab.set('pending')"
-    >
-      Pending ({{ pending().length }})
-    </button>
-    <button
-      class="sharing-page__button sharing-page__tab-button"
-      type="button"
-      [class.sharing-page__active]="tab() === 'past'"
-      (click)="tab.set('past')"
-    >
-      Past ({{ past().length }})
-    </button>
-  </nav>
-  @if (!loading() && activeReservations().length === 0) {
-    <p>No Reservations in this tab.</p>
+
+  @if (proposalsError()) {
+    <p class="my-res__banner my-res__banner--warn" role="status">
+      {{ proposalsError() }}
+      <button class="my-res__btn" type="button" (click)="retryProposals()">Retry proposals</button>
+    </p>
   }
-  <ul class="sharing-page__plain-list sharing-page__compact-list">
-    @for (reservation of activeReservations(); track reservation.id) {
-      <li class="sharing-page__reservation-card">
-        <app-reservation-card
-          [reservation]="reservation"
-          [personName]="ownerName(reservation)"
-          [personPhotoUrl]="reservation.item.owner.profilePhotoUrl"
-          mode="requester"
-          [pendingProposalFromOther]="pendingProposalFromOther(reservation)"
-          [pendingProposalByMe]="pendingProposalByMe(reservation)"
-          [canCancelOrPropose]="canCancelOrPropose(reservation)"
-          (withdraw)="withdraw($event)"
-          (cancel)="cancel($event)"
-          (propose)="propose($event.reservation, $event.startLocal, $event.endLocal)"
-          (withdrawProposal)="withdrawProposal($event)"
-          (approveProposal)="approve($event)"
-          (rejectProposal)="reject($event)"
-        />
-      </li>
+
+  @if (actionError()) {
+    <p class="my-res__error" role="alert">{{ actionError() }}</p>
+  }
+
+  @if (!loading() && !error()) {
+    @if (!hasSharingGroups() && reservations().length === 0) {
+      <section class="my-res__empty" aria-labelledby="my-res-no-groups-title">
+        <h2 id="my-res-no-groups-title">You’re not in any Sharing Groups yet</h2>
+        <p class="my-res__muted">
+          Borrowing starts when someone shares Items with you in a Sharing Group.
+        </p>
+        <a class="my-res__btn my-res__btn--primary" routerLink="/sharing-groups">
+          Browse Sharing Groups
+        </a>
+      </section>
+    } @else if (reservations().length === 0) {
+      <section class="my-res__empty" aria-labelledby="my-res-zero-title">
+        <h2 id="my-res-zero-title">No borrow trips yet</h2>
+        <p class="my-res__muted">Find something shared with you and request a time.</p>
+        <a class="my-res__btn my-res__btn--primary" routerLink="/browse">Browse shared items</a>
+      </section>
+    } @else {
+      @if (needsResponse().length) {
+        <div class="my-res__strip" role="status">
+          <strong>Needs your response ({{ needsResponse().length }})</strong>
+          <span class="my-res__muted">Owner proposed new dates</span>
+        </div>
+      }
+
+      <nav class="my-res__tabs" aria-label="My reservations tabs">
+        <button
+          class="my-res__tab"
+          type="button"
+          [class.my-res__tab--on]="tab() === 'upcoming'"
+          (click)="selectTab('upcoming')"
+        >
+          Upcoming ({{ upcoming().length }})
+        </button>
+        <button
+          class="my-res__tab"
+          type="button"
+          [class.my-res__tab--on]="tab() === 'pending'"
+          (click)="selectTab('pending')"
+        >
+          Pending ({{ pending().length }})
+        </button>
+        <button
+          class="my-res__tab"
+          type="button"
+          [class.my-res__tab--on]="tab() === 'past'"
+          (click)="selectTab('past')"
+        >
+          Past ({{ past().length }})
+        </button>
+      </nav>
+
+      @if (activeReservations().length === 0) {
+        <p class="my-res__muted">
+          No Reservations in {{ tabLabel(tab()) }}.
+          @if (softLinkTab(); as linkTab) {
+            <button class="my-res__linkish" type="button" (click)="selectTab(linkTab)">
+              View {{ tabLabel(linkTab) }}
+            </button>
+          }
+        </p>
+      } @else {
+        <div class="my-res__table" role="table" aria-label="Reservations">
+          <div class="my-res__row my-res__row--head" role="row">
+            <span role="columnheader">Item</span>
+            <span role="columnheader">Owner</span>
+            <span role="columnheader">When</span>
+            <span role="columnheader">Status</span>
+            <span role="columnheader">Actions</span>
+          </div>
+          @for (reservation of activeReservations(); track reservation.id) {
+            @let ownerProposal = pendingProposalFromOther(reservation);
+            @let myProposal = pendingProposalByMe(reservation);
+            @let needsMe = ownerProposal !== null;
+            <div class="my-res__row" role="row" [class.my-res__row--alert]="needsMe">
+              <div role="cell">
+                <button type="button" class="my-res__item-btn" (click)="openDetail(reservation)">
+                  <strong>{{ reservation.item.name }}</strong>
+                </button>
+                <div class="my-res__muted">{{ locationName(reservation) }}</div>
+                @if (listPlacementPath(reservation); as path) {
+                  <div class="my-res__place">{{ path }}</div>
+                }
+              </div>
+              <div class="my-res__person" role="cell">
+                <app-user-avatar
+                  [displayName]="ownerName(reservation)"
+                  [photoUrl]="reservation.item.owner.profilePhotoUrl"
+                />
+                <span>{{ ownerName(reservation) }}</span>
+              </div>
+              <div role="cell">
+                <div>{{ rangeLabel(reservation) }}</div>
+                @if (ownerProposal; as proposal) {
+                  <div class="my-res__prop">
+                    Proposed: {{ proposalRangeLabel(proposal) }}
+                    <span class="my-res__muted">(from owner)</span>
+                  </div>
+                } @else if (myProposal; as proposal) {
+                  <div class="my-res__prop">
+                    Proposed: {{ proposalRangeLabel(proposal) }}
+                    <span class="my-res__muted">(by you)</span>
+                  </div>
+                }
+              </div>
+              <div role="cell">
+                <div [class.my-res__status--alert]="needsMe">{{ statusLabel(reservation) }}</div>
+                @if (myProposal && !needsMe) {
+                  <div class="my-res__muted my-res__waiting">
+                    Waiting on {{ ownerName(reservation) }}
+                  </div>
+                }
+                @if (
+                  reservation.conflictsWithAcceptedReservation && reservation.status === 'pending'
+                ) {
+                  <div class="my-res__warn">
+                    Another Accepted Reservation already covers part of this window.
+                  </div>
+                }
+              </div>
+              <div class="my-res__actions" role="cell">
+                @if (ownerProposal; as proposal) {
+                  <button
+                    class="my-res__btn my-res__btn--primary"
+                    type="button"
+                    [disabled]="actionBusy()"
+                    (click)="approve(proposal)"
+                  >
+                    Accept change
+                  </button>
+                  <button
+                    class="my-res__btn"
+                    type="button"
+                    [disabled]="actionBusy()"
+                    (click)="reject(proposal)"
+                  >
+                    Reject
+                  </button>
+                } @else if (myProposal; as proposal) {
+                  <button
+                    class="my-res__btn"
+                    type="button"
+                    [disabled]="actionBusy()"
+                    (click)="withdrawProposal(proposal)"
+                  >
+                    Withdraw proposal
+                  </button>
+                  <button class="my-res__btn" type="button" (click)="openDetail(reservation)">
+                    Trip detail
+                  </button>
+                } @else if (canWithdraw(reservation)) {
+                  <button
+                    class="my-res__btn"
+                    type="button"
+                    [disabled]="actionBusy()"
+                    (click)="withdraw(reservation)"
+                  >
+                    Withdraw
+                  </button>
+                  <button class="my-res__btn" type="button" (click)="openDetail(reservation)">
+                    Change dates…
+                  </button>
+                } @else if (canCancel(reservation)) {
+                  <button
+                    class="my-res__btn"
+                    type="button"
+                    [disabled]="actionBusy()"
+                    (click)="cancel(reservation)"
+                  >
+                    Cancel
+                  </button>
+                  <button class="my-res__btn" type="button" (click)="openDetail(reservation)">
+                    Trip detail
+                  </button>
+                } @else {
+                  <button class="my-res__linkish" type="button" (click)="openDetail(reservation)">
+                    View
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
     }
-  </ul>
+  }
 </app-page-layout>
+
+@if (selected(); as trip) {
+  @let ownerProposal = pendingProposalFromOther(trip);
+  @let myProposal = pendingProposalByMe(trip);
+  <div class="my-res-modal-root" role="presentation">
+    <button
+      type="button"
+      class="my-res-modal-backdrop"
+      aria-label="Close trip detail"
+      (click)="closeDetail()"
+    ></button>
+    <aside
+      class="my-res-modal"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-labelledby]="dialogTitleId"
+    >
+      <header class="my-res-modal__head">
+        <div>
+          <p class="my-res-modal__kicker">Trip detail</p>
+          <h2 [id]="dialogTitleId">{{ trip.item.name }}</h2>
+        </div>
+        <button class="my-res__btn" type="button" (click)="closeDetail()">Close</button>
+      </header>
+
+      @if (actionError()) {
+        <p class="my-res__error" role="alert">{{ actionError() }}</p>
+      }
+
+      <dl class="my-res-modal__dl">
+        <div>
+          <dt>Owner</dt>
+          <dd class="my-res__person">
+            <app-user-avatar
+              [displayName]="ownerName(trip)"
+              [photoUrl]="trip.item.owner.profilePhotoUrl"
+            />
+            {{ ownerName(trip) }}
+          </dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{{ statusLabel(trip) }}</dd>
+        </div>
+        <div>
+          <dt>When</dt>
+          <dd>{{ rangeLabel(trip) }}</dd>
+        </div>
+        <div>
+          <dt>Typical Location</dt>
+          <dd>{{ locationName(trip) }}</dd>
+        </div>
+        @if (listPlacementPath(trip); as path) {
+          <div>
+            <dt>Typical Placement</dt>
+            <dd>{{ path }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Sharing Group</dt>
+          <dd>{{ trip.sharingGroup.name }}</dd>
+        </div>
+      </dl>
+
+      @if (structuredPlacement(trip); as snapshot) {
+        <div class="my-res-modal__diagram">
+          <app-placement-snapshot-diagram [snapshot]="snapshot" />
+        </div>
+      }
+
+      <p class="my-res__muted">
+        <a [routerLink]="['/shared-items', trip.item.id]">View shared Item</a>
+        <span> — frozen placement lives on this Reservation, not live Item placement.</span>
+      </p>
+
+      @if (ownerProposal; as proposal) {
+        <div class="my-res-modal__proposal">
+          <p>
+            Current:
+            <span class="my-res__strike">{{ rangeLabel(trip) }}</span>
+          </p>
+          <p>
+            Proposed: <strong>{{ proposalRangeLabel(proposal) }}</strong>
+          </p>
+          <div class="my-res__actions">
+            <button
+              class="my-res__btn my-res__btn--primary"
+              type="button"
+              [disabled]="actionBusy()"
+              (click)="approve(proposal, true)"
+            >
+              Accept change
+            </button>
+            <button
+              class="my-res__btn"
+              type="button"
+              [disabled]="actionBusy()"
+              (click)="reject(proposal, true)"
+            >
+              Reject change
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (canPropose(trip)) {
+        <form class="my-res-modal__propose" (submit)="$event.preventDefault(); submitPropose()">
+          <p class="my-res-modal__propose-title">Propose change</p>
+          <label class="my-res__field">
+            Proposed start
+            <input type="datetime-local" [formField]="proposeForm.startLocal" />
+          </label>
+          <label class="my-res__field">
+            Proposed end
+            <input type="datetime-local" [formField]="proposeForm.endLocal" />
+          </label>
+          @if (proposeForm.startLocal().touched() && proposeForm.startLocal().errors().length) {
+            <p class="my-res__error" role="alert">
+              {{ proposeForm.startLocal().errors()[0].message }}
+            </p>
+          }
+          @if (proposeForm.endLocal().touched() && proposeForm.endLocal().errors().length) {
+            <p class="my-res__error" role="alert">
+              {{ proposeForm.endLocal().errors()[0].message }}
+            </p>
+          }
+          <button class="my-res__btn my-res__btn--primary" type="submit" [disabled]="actionBusy()">
+            Propose change
+          </button>
+        </form>
+      }
+
+      @if (canWithdraw(trip) && !ownerProposal) {
+        <button
+          class="my-res__btn"
+          type="button"
+          [disabled]="actionBusy()"
+          (click)="withdraw(trip, true)"
+        >
+          Withdraw
+        </button>
+      }
+      @if (canCancel(trip) && !ownerProposal) {
+        <button
+          class="my-res__btn"
+          type="button"
+          [disabled]="actionBusy()"
+          (click)="cancel(trip, true)"
+        >
+          Cancel Reservation
+        </button>
+      }
+      @if (myProposal; as proposal) {
+        <button
+          class="my-res__btn"
+          type="button"
+          [disabled]="actionBusy()"
+          (click)="withdrawProposal(proposal, true)"
+        >
+          Withdraw proposal
+        </button>
+      }
+
+      @if (isHistoryOnly(trip)) {
+        <p class="my-res__muted">This is history only — no further actions on this trip.</p>
+      }
+    </aside>
+  </div>
+}
