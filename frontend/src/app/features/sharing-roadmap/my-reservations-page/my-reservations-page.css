@@ -220,29 +220,12 @@
   font: inherit;
 }
 
-.my-res-modal-root {
-  position: fixed;
-  inset: 0;
-  z-index: 900;
-  display: grid;
-  place-items: center;
-  padding: var(--space-4);
-}
-
-.my-res-modal-backdrop {
-  position: absolute;
-  inset: 0;
-  border: none;
-  background: oklch(0% 0 0 / 45%);
-  cursor: pointer;
-}
-
-.my-res-modal {
-  position: relative;
-  z-index: 1;
-  width: min(36rem, 100%);
+/* Only style the open state — closed dialogs must keep UA `display: none`. */
+.my-res-modal[open] {
+  width: min(36rem, calc(100% - var(--space-8)));
   max-height: min(90vh, 48rem);
   overflow: auto;
+  margin: auto;
   padding: var(--space-4);
   border-radius: var(--radius-md);
   border: var(--border-width) solid var(--border);
@@ -251,6 +234,10 @@
   display: grid;
   gap: var(--space-3);
   box-shadow: var(--shadow-popover);
+}
+
+.my-res-modal::backdrop {
+  background: oklch(0% 0 0 / 45%);
 }
 
 .my-res-modal__head {

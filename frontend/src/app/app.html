@@ -1,42 +1,44 @@
-<header class="app__header">
-  <a class="app__home-link" routerLink="/home" aria-label="Home">
-    <span class="app__home-link-we">We</span>
-    <span class="app__home-link-share">Share</span>
-    <span class="app__home-link-stuff">Stuff</span>
-  </a>
-  @if (session.status() === 'authenticated' && session.user(); as user) {
-    <nav class="app__nav" aria-label="Primary">
-      <a routerLink="/browse">Browse</a>
-      <a routerLink="/share-a-tool">Share a tool</a>
-      <a routerLink="/my-stuff">My stuff</a>
-      <a routerLink="/reservations">My reservations</a>
-      <a routerLink="/sharing-groups">Sharing groups</a>
-    </nav>
-    <button
-      app-user-avatar
-      class="app__account-trigger"
-      type="button"
-      popovertarget="account-menu"
-      [displayName]="user.displayName"
-      [photoUrl]="user.profilePhotoUrl"
-      [attr.aria-expanded]="accountMenuOpen()"
-      [attr.aria-label]="'Open account menu for ' + user.displayName"
-    ></button>
-    <div
-      #accountMenu
-      id="account-menu"
-      class="app__account-menu"
-      popover="auto"
-      (toggle)="accountMenuToggled($event)"
-    >
-      <div class="app__account-name">{{ user.displayName }}</div>
-      <a routerLink="/my-page" (click)="accountMenu.hidePopover()">My page</a>
-      <button type="button" (click)="signOut()">Sign out</button>
-    </div>
+<div class="app__shell" appDialogInertRoot>
+  <header class="app__header">
+    <a class="app__home-link" routerLink="/home" aria-label="Home">
+      <span class="app__home-link-we">We</span>
+      <span class="app__home-link-share">Share</span>
+      <span class="app__home-link-stuff">Stuff</span>
+    </a>
+    @if (session.status() === 'authenticated' && session.user(); as user) {
+      <nav class="app__nav" aria-label="Primary">
+        <a routerLink="/browse">Browse</a>
+        <a routerLink="/share-a-tool">Share a tool</a>
+        <a routerLink="/my-stuff">My stuff</a>
+        <a routerLink="/reservations">My reservations</a>
+        <a routerLink="/sharing-groups">Sharing groups</a>
+      </nav>
+      <button
+        app-user-avatar
+        class="app__account-trigger"
+        type="button"
+        popovertarget="account-menu"
+        [displayName]="user.displayName"
+        [photoUrl]="user.profilePhotoUrl"
+        [attr.aria-expanded]="accountMenuOpen()"
+        [attr.aria-label]="'Open account menu for ' + user.displayName"
+      ></button>
+      <div
+        #accountMenu
+        id="account-menu"
+        class="app__account-menu"
+        popover="auto"
+        (toggle)="accountMenuToggled($event)"
+      >
+        <div class="app__account-name">{{ user.displayName }}</div>
+        <a routerLink="/my-page" (click)="accountMenu.hidePopover()">My page</a>
+        <button type="button" (click)="signOut()">Sign out</button>
+      </div>
+    }
+  </header>
+  @if (session.status() === 'checking') {
+    <p role="status">Checking your session…</p>
+  } @else {
+    <router-outlet />
   }
-</header>
-@if (session.status() === 'checking') {
-  <p role="status">Checking your session…</p>
-} @else {
-  <router-outlet />
-}
+</div>

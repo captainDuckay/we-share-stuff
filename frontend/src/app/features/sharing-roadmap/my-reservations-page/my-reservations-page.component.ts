@@ -2,12 +2,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  HostListener,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormField, form, submit, validate } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
+import { AppDialog } from '../../../core/dialog/app-dialog';
 import { Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
 import { SessionStore } from '../../../core/session/session.store';
@@ -32,7 +33,7 @@ import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapsh
 
 @Component({
   selector: 'app-my-reservations-page',
-  imports: [FormField, PageLayout, PlacementSnapshotDiagram, RouterLink, UserAvatar],
+  imports: [AppDialog, FormField, PageLayout, PlacementSnapshotDiagram, RouterLink, UserAvatar],
   templateUrl: './my-reservations-page.component.html',
   styleUrl: './my-reservations-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -40,6 +41,8 @@ import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapsh
 export class MyReservationsPageComponent {
   readonly #api = inject(SharingApi);
   readonly #session = inject(SessionStore);
+  // viewChild requires a TypeScript-accessible field (not # private).
+  private readonly tripDialog = viewChild(AppDialog);
 
   readonly reservations = signal<readonly Reservation[]>([]);
   readonly proposals = signal<readonly ReservationChangeProposal[]>([]);
@@ -109,11 +112,6 @@ export class MyReservationsPageComponent {
     void this.load();
   }
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.selectedId()) this.closeDetail();
-  }
-
   async load(): Promise<void> {
     this.loading.set(true);
     this.error.set('');
@@ -162,17 +160,32 @@ export class MyReservationsPageComponent {
   }
 
   openDetail(reservation: Reservation): void {
-    this.selectedId.set(reservation.id);
     this.actionError.set('');
     this.proposeModel.set({
       startLocal: reservation.startLocal.slice(0, 16),
       endLocal: reservation.endLocal.slice(0, 16),
     });
+    this.selectedId.set(reservation.id);
+  }
+
+  /** Close button: ask the native dialog to close; state clears on `appDialogClosed`. */
+  requestCloseDetail(): void {
+    const dialog = this.tripDialog();
+    if (dialog) {
+      dialog.close();
+      return;
+    }
+    this.onDetailClosed();
+  }
+
+  /** Sync after native close (Escape, light dismiss, or programmatic close). */
+  onDetailClosed(): void {
+    this.selectedId.set(null);
+    this.actionError.set('');
   }
 
   closeDetail(): void {
-    this.selectedId.set(null);
-    this.actionError.set('');
+    this.requestCloseDetail();
   }
 
   ownerName(reservation: Reservation): string {

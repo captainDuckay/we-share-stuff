@@ -1,5 +1,6 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
+import { DialogInertRoot } from './core/dialog/dialog-inert-root';
 import { SessionStore } from './core/session/session.store';
 import { UserAvatar } from './features/user-avatar/user-avatar/user-avatar';
 
@@ -8,7 +9,7 @@ const PROTECTED_ROUTES = ['/sharing'] as const;
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, UserAvatar],
+  imports: [DialogInertRoot, RouterOutlet, RouterLink, UserAvatar],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
