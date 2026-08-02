@@ -1,7 +1,15 @@
 @if (inbox.centerOpen()) {
-  <div class="nc-scrim" (click)="inbox.closeCenter()" aria-hidden="true"></div>
+  <div
+    class="nc-scrim"
+    animate.enter="nc-scrim-enter"
+    animate.leave="nc-scrim-leave"
+    (click)="inbox.closeCenter()"
+    aria-hidden="true"
+  ></div>
   <aside
     class="nc-drawer"
+    animate.enter="nc-drawer-enter"
+    animate.leave="nc-drawer-leave"
     role="dialog"
     aria-modal="false"
     aria-labelledby="nc-drawer-title"

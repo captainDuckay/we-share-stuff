@@ -18,6 +18,80 @@
   color: var(--card-foreground);
   border-left: var(--border-width) solid var(--border);
   box-shadow: var(--shadow-popover);
+  will-change: transform;
+}
+
+/* Open / close — Angular animate.enter / animate.leave */
+.nc-drawer-enter {
+  animation: nc-drawer-in var(--nc-motion-duration-in) var(--ease-in-out) both;
+}
+
+.nc-drawer-leave {
+  animation: nc-drawer-out var(--nc-motion-duration-out) var(--ease-in-out) both;
+}
+
+.nc-scrim-enter {
+  animation: nc-scrim-in var(--nc-motion-duration-in) var(--ease-in-out) both;
+}
+
+.nc-scrim-leave {
+  animation: nc-scrim-out var(--nc-motion-duration-out) var(--ease-in-out) both;
+}
+
+.nc-drawer,
+.nc-scrim {
+  --nc-motion-duration-in: 220ms;
+  --nc-motion-duration-out: 180ms;
+}
+
+@keyframes nc-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes nc-drawer-out {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nc-scrim-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nc-scrim-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-drawer-enter,
+  .nc-drawer-leave,
+  .nc-scrim-enter,
+  .nc-scrim-leave {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
 }
 
 .nc-drawer__header {
