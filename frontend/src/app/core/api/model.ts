@@ -411,6 +411,51 @@ export interface StructuralDrawingPatch {
   readonly points?: readonly SketchPoint[];
 }
 
+export type NotificationKind =
+  | 'invitation'
+  | 'reservation_request'
+  | 'reservation_change_proposal';
+
+export type NotificationAttention = 'unread' | 'read';
+
+/** Structured deep link; surface selects the destination route family. */
+export interface NotificationDeepLink {
+  readonly surface: string;
+  readonly sharingGroupId?: string;
+  readonly reservationId?: string;
+  readonly [key: string]: unknown;
+}
+
+export interface Notification {
+  readonly id: string;
+  readonly kind: NotificationKind;
+  readonly subjectId: string;
+  readonly subjectStatus: string;
+  readonly attention: NotificationAttention;
+  readonly summary: string;
+  readonly deepLink: NotificationDeepLink;
+  /** Kind-specific denormalized fields (invitation, reservation request, …). */
+  readonly payload: Readonly<Record<string, unknown>>;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface NotificationsEnvelope {
+  readonly notifications: readonly Notification[];
+  readonly unreadCount: number;
+  readonly limit: number;
+  readonly offset: number;
+  readonly total: number;
+}
+
+export interface UnreadCountEnvelope {
+  readonly unreadCount: number;
+}
+
+export interface NotificationEnvelope {
+  readonly notification: Notification;
+}
+
 export interface Credentials {
   readonly email: string;
   readonly password: string;

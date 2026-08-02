@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -552,3 +553,65 @@ class ReservationChangeProposal(Base):
 
     reservation: Mapped[Reservation] = relationship()
     proposed_by: Mapped[User] = relationship()
+
+
+class Notification(Base):
+    """Per-recipient durable inbox projection for a domain subject."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ("
+            "'invitation', "
+            "'reservation_request', "
+            "'reservation_change_proposal'"
+            ")",
+            name="notifications_kind_valid",
+        ),
+        CheckConstraint(
+            "attention IN ('unread', 'read')",
+            name="notifications_attention_valid",
+        ),
+        CheckConstraint(
+            "length(summary) >= 1",
+            name="notifications_summary_not_blank",
+        ),
+        CheckConstraint(
+            "length(subject_status) >= 1",
+            name="notifications_subject_status_not_blank",
+        ),
+        UniqueConstraint(
+            "recipient_user_id",
+            "kind",
+            "subject_id",
+            name="notifications_recipient_kind_subject_unique",
+        ),
+        Index(
+            "notifications_recipient_updated_at_index",
+            "recipient_user_id",
+            "updated_at",
+        ),
+        Index(
+            "notifications_recipient_attention_index",
+            "recipient_user_id",
+            "attention",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    recipient_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(40))
+    subject_id: Mapped[UUID] = mapped_column()
+    subject_status: Mapped[str] = mapped_column(String(40))
+    attention: Mapped[str] = mapped_column(String(20), default="unread")
+    summary: Mapped[str] = mapped_column(Text())
+    deep_link: Mapped[dict] = mapped_column(JSON)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

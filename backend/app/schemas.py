@@ -838,3 +838,37 @@ class StructuralDrawingEnvelope(AliasModel):
     structural_drawing: StructuralDrawingResponse = Field(
         serialization_alias="structuralDrawing"
     )
+
+
+NOTIFICATION_LIST_DEFAULT_LIMIT = 20
+NOTIFICATION_LIST_MAX_LIMIT = 50
+
+
+class NotificationResponse(AliasModel):
+    id: UUID
+    kind: str
+    subject_id: UUID = Field(serialization_alias="subjectId")
+    subject_status: str = Field(serialization_alias="subjectStatus")
+    attention: str
+    summary: str
+    # JSON as stored (prefer camelCase keys for deepLink/payload at write time).
+    deep_link: dict = Field(serialization_alias="deepLink")
+    payload: dict = Field(default_factory=dict)
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class NotificationEnvelope(AliasModel):
+    notification: NotificationResponse
+
+
+class NotificationsEnvelope(AliasModel):
+    notifications: list[NotificationResponse]
+    unread_count: int = Field(serialization_alias="unreadCount")
+    limit: int
+    offset: int
+    total: int
+
+
+class UnreadCountEnvelope(AliasModel):
+    unread_count: int = Field(serialization_alias="unreadCount")

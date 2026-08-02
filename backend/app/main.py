@@ -18,6 +18,7 @@ from app.routers import (
     auth,
     item_photos,
     items,
+    notifications,
     placement_surfaces,
     profile,
     reservations,
@@ -133,6 +134,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(sharing_groups.router)
     application.include_router(sharing_group_photos.router)
     application.include_router(reservations.router)
+    application.include_router(notifications.router)
     return application
 
 
