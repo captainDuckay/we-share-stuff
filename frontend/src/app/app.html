@@ -42,3 +42,6 @@
     <router-outlet />
   }
 </div>
+@if (session.status() === 'authenticated') {
+  <aside app-toast-host></aside>
+}

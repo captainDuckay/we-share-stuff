@@ -10,4 +10,5 @@
   --shadow-popover: 0 var(--space-2) var(--space-6) var(--shadow-color);
   --opacity-disabled: 0.6;
   --layer-popover: 10;
+  --layer-toast: 60;
 }
