@@ -23,7 +23,9 @@ from app.models import (
     Reservation,
     ReservationChangeProposal,
     SharingGroupMember,
+    User,
 )
+from app.notification_emission import emit_reservation_request_notifications
 from app.problems import problem
 from app.schemas import (
     ReservationChangeProposalEnvelope,
@@ -169,6 +171,29 @@ async def pending_change_proposal_exists(
     return existing is not None
 
 
+async def emit_for_reservation_mutation(
+    db: DatabaseSession,
+    *,
+    reservation: Reservation,
+    actor_user_id: UUID | None,
+) -> None:
+    item = await db.get(Item, reservation.item_id)
+    if item is None:
+        raise problem(404, "reservation_not_found", "Reservation was not found")
+    owner = await db.get(User, item.owner_id)
+    requester = await db.get(User, reservation.requester_id)
+    if owner is None or requester is None:
+        raise problem(404, "reservation_not_found", "Reservation was not found")
+    await emit_reservation_request_notifications(
+        db,
+        reservation=reservation,
+        item=item,
+        owner=owner,
+        requester=requester,
+        actor_user_id=actor_user_id,
+    )
+
+
 async def create_reservation_for_visible_item(
     db: DatabaseSession,
     current: AuthenticatedMutation,
@@ -226,6 +251,10 @@ async def create_reservation_for_visible_item(
         timezone=timezone,
     )
     db.add(reservation)
+    await db.flush()
+    await emit_for_reservation_mutation(
+        db, reservation=reservation, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(reservation)
     return ReservationEnvelope(
@@ -355,6 +384,9 @@ async def accept_reservation(
     reservation.typical_placement_structured_snapshot = structured
     reservation.status = "accepted"
     reservation.decided_at = now_utc()
+    await emit_for_reservation_mutation(
+        db, reservation=reservation, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(reservation)
     return ReservationEnvelope(
@@ -376,6 +408,9 @@ async def decline_reservation(
     reservation.status = "declined"
     reservation.decided_at = now_utc()
     await void_pending_change_proposals(db, reservation.id)
+    await emit_for_reservation_mutation(
+        db, reservation=reservation, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(reservation)
     return ReservationEnvelope(
@@ -399,6 +434,9 @@ async def withdraw_reservation(
     reservation.status = "withdrawn"
     reservation.decided_at = now_utc()
     await void_pending_change_proposals(db, reservation.id)
+    await emit_for_reservation_mutation(
+        db, reservation=reservation, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(reservation)
     return ReservationEnvelope(
@@ -420,6 +458,9 @@ async def cancel_reservation(
     reservation.status = "cancelled"
     reservation.decided_at = now_utc()
     await void_pending_change_proposals(db, reservation.id)
+    await emit_for_reservation_mutation(
+        db, reservation=reservation, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(reservation)
     return ReservationEnvelope(

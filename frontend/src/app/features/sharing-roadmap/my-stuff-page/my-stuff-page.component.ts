@@ -5,8 +5,10 @@ import { map } from 'rxjs';
 import { InventoryApi } from '../../../core/api/inventory-api.service';
 import { Item, Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
+import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
+import { ToastStore } from '../../../core/toast/toast.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
-import { reservationCanProposeChange } from '../functions';
+import { friendlyApiError, reservationCanProposeChange } from '../functions';
 import { ReservationCardComponent } from '../reservation-card/reservation-card.component';
 import { SharedItemCardComponent } from '../shared-item-card/shared-item-card.component';
 
@@ -19,6 +21,8 @@ import { SharedItemCardComponent } from '../shared-item-card/shared-item-card.co
 export class MyStuffPageComponent {
   readonly #inventoryApi = inject(InventoryApi);
   readonly #sharingApi = inject(SharingApi);
+  readonly #inbox = inject(NotificationInboxStore);
+  readonly #toast = inject(ToastStore);
   readonly #route = inject(ActivatedRoute);
   #loadGeneration = 0;
   readonly typicalLocationId = toSignal(
@@ -64,6 +68,11 @@ export class MyStuffPageComponent {
       );
       if (generation !== this.#loadGeneration) return;
       this.proposals.set(lists.flatMap((list) => list.changeProposals));
+      // Destination open: owner Approvals surface correlates by reservation subject.
+      void this.#inbox.markSubjectsRead(
+        'reservation_request',
+        received.reservations.map((reservation) => reservation.id),
+      );
     } catch {
       if (generation === this.#loadGeneration) this.error.set('We could not load My stuff.');
     } finally {
@@ -106,16 +115,34 @@ export class MyStuffPageComponent {
     return reservationCanProposeChange(reservation, this.activeProposals());
   }
   async accept(reservation: Reservation): Promise<void> {
-    await this.#sharingApi.acceptReservation(reservation.id);
-    await this.load();
+    try {
+      await this.#sharingApi.acceptReservation(reservation.id);
+      this.#toast.success('Reservation accepted.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(friendlyApiError(error, 'We could not accept that Reservation.'));
+    }
   }
   async decline(reservation: Reservation): Promise<void> {
-    await this.#sharingApi.declineReservation(reservation.id);
-    await this.load();
+    try {
+      await this.#sharingApi.declineReservation(reservation.id);
+      this.#toast.success('Reservation declined.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(friendlyApiError(error, 'We could not decline that Reservation.'));
+    }
   }
   async cancel(reservation: Reservation): Promise<void> {
-    await this.#sharingApi.cancelReservation(reservation.id);
-    await this.load();
+    try {
+      await this.#sharingApi.cancelReservation(reservation.id);
+      this.#toast.success('Reservation cancelled.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(friendlyApiError(error, 'We could not cancel that Reservation.'));
+    }
   }
   async propose(reservation: Reservation, startLocal: string, endLocal: string): Promise<void> {
     if (!startLocal || !endLocal) return;

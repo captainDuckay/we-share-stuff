@@ -21,11 +21,15 @@ from app.models import (
     Invitation,
     Item,
     ItemSharing,
+    Reservation,
     SharingGroup,
     SharingGroupMember,
     User,
 )
-from app.notification_emission import emit_invitation_notification
+from app.notification_emission import (
+    emit_invitation_notification,
+    emit_reservation_request_notifications,
+)
 from app.problems import problem
 from app.schemas import (
     InvitationAcceptEnvelope,
@@ -151,6 +155,31 @@ async def list_sharing_group_members(
     )
 
 
+async def emit_declined_reservations_from_membership_loss(
+    db: DatabaseSession,
+    *,
+    declined: list[Reservation],
+    actor_user_id: UUID,
+) -> None:
+    """Apply reservation_request Notification rules for system-driven declines."""
+    for reservation in declined:
+        item = await db.get(Item, reservation.item_id)
+        if item is None:
+            continue
+        owner = await db.get(User, item.owner_id)
+        requester = await db.get(User, reservation.requester_id)
+        if owner is None or requester is None:
+            continue
+        await emit_reservation_request_notifications(
+            db,
+            reservation=reservation,
+            item=item,
+            owner=owner,
+            requester=requester,
+            actor_user_id=actor_user_id,
+        )
+
+
 @router.delete(
     "/sharing-groups/{sharing_group_id}/members/me",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -165,8 +194,11 @@ async def leave_sharing_group(
             "sharing_group_creator_cannot_leave",
             "Sharing Group creator cannot leave",
         )
-    await decline_pending_reservations_for_requester_in_group(
+    declined = await decline_pending_reservations_for_requester_in_group(
         db, group.id, current.user.id
+    )
+    await emit_declined_reservations_from_membership_loss(
+        db, declined=declined, actor_user_id=current.user.id
     )
     await remove_member_item_sharing(db, group.id, current.user.id)
     await db.execute(
@@ -198,7 +230,12 @@ async def remove_sharing_group_member(
     member = await db.get(SharingGroupMember, (group.id, user_id))
     if member is None:
         raise problem(404, "member_not_found", "Member was not found")
-    await decline_pending_reservations_for_requester_in_group(db, group.id, user_id)
+    declined = await decline_pending_reservations_for_requester_in_group(
+        db, group.id, user_id
+    )
+    await emit_declined_reservations_from_membership_loss(
+        db, declined=declined, actor_user_id=current.user.id
+    )
     await remove_member_item_sharing(db, group.id, user_id)
     await db.delete(member)
     await db.commit()

@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -202,16 +202,26 @@ async def remove_member_item_sharing(
 
 async def decline_pending_reservations_for_requester_in_group(
     db: AsyncSession, group_id: UUID, requester_id: UUID
-) -> None:
-    await db.execute(
-        update(Reservation)
-        .where(
+) -> list[Reservation]:
+    """Decline pending Reservation Requests for a requester in a group.
+
+    Returns the Reservation rows that were transitioned (for Notification emission).
+    """
+    result = await db.scalars(
+        select(Reservation).where(
             Reservation.sharing_group_id == group_id,
             Reservation.requester_id == requester_id,
             Reservation.status == "pending",
         )
-        .values(status="declined", decided_at=now_utc())
     )
+    declined = list(result)
+    decided_at = now_utc()
+    for reservation in declined:
+        reservation.status = "declined"
+        reservation.decided_at = decided_at
+    if declined:
+        await db.flush()
+    return declined
 
 
 async def active_item_sharing_exists(db: AsyncSession, item_id: UUID) -> bool:

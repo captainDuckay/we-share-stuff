@@ -11,7 +11,9 @@ import { RouterLink } from '@angular/router';
 import { AppDialog } from '../../../core/dialog/app-dialog';
 import { Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
+import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
 import { SessionStore } from '../../../core/session/session.store';
+import { ToastStore } from '../../../core/toast/toast.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
 import {
@@ -41,6 +43,8 @@ import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapsh
 export class MyReservationsPageComponent {
   readonly #api = inject(SharingApi);
   readonly #session = inject(SessionStore);
+  readonly #inbox = inject(NotificationInboxStore);
+  readonly #toast = inject(ToastStore);
   // viewChild requires a TypeScript-accessible field (not # private).
   private readonly tripDialog = viewChild(AppDialog);
 
@@ -141,6 +145,11 @@ export class MyReservationsPageComponent {
       ) {
         this.selectedId.set(null);
       }
+      // Destination open: mark Read by kind + subject (reservation id).
+      void this.#inbox.markSubjectsRead(
+        'reservation_request',
+        response.reservations.map((reservation) => reservation.id),
+      );
     } catch {
       this.error.set('We could not load My reservations.');
       this.reservations.set([]);
@@ -285,16 +294,28 @@ export class MyReservationsPageComponent {
   }
 
   async withdraw(reservation: Reservation, closeDetail = false): Promise<void> {
-    const ok = await this.#runAction(async () => {
-      await this.#api.withdrawReservation(reservation.id);
-    });
+    const ok = await this.#runAction(
+      async () => {
+        await this.#api.withdrawReservation(reservation.id);
+      },
+      {
+        success: 'Reservation withdrawn.',
+        error: 'We could not withdraw that Reservation Request.',
+      },
+    );
     if (ok && closeDetail) this.closeDetail();
   }
 
   async cancel(reservation: Reservation, closeDetail = false): Promise<void> {
-    const ok = await this.#runAction(async () => {
-      await this.#api.cancelReservation(reservation.id);
-    });
+    const ok = await this.#runAction(
+      async () => {
+        await this.#api.cancelReservation(reservation.id);
+      },
+      {
+        success: 'Reservation cancelled.',
+        error: 'We could not cancel that Reservation.',
+      },
+    );
     if (ok && closeDetail) this.closeDetail();
   }
 
@@ -356,16 +377,23 @@ export class MyReservationsPageComponent {
     }
   }
 
-  async #runAction(action: () => Promise<void>): Promise<boolean> {
+  async #runAction(
+    action: () => Promise<void>,
+    messages?: { success: string; error: string },
+  ): Promise<boolean> {
     if (this.actionBusy()) return false;
     this.actionBusy.set(true);
     this.actionError.set('');
     try {
       await action();
+      if (messages?.success) this.#toast.success(messages.success);
+      void this.#inbox.refresh();
       await this.#refreshQuietly();
       return true;
     } catch {
-      this.actionError.set('That action could not be completed. Try again.');
+      const errorMessage = messages?.error ?? 'That action could not be completed. Try again.';
+      this.actionError.set(errorMessage);
+      this.#toast.error(errorMessage);
       return false;
     } finally {
       this.actionBusy.set(false);

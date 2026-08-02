@@ -1,7 +1,9 @@
 import { Component, computed, inject, input, linkedSignal } from '@angular/core';
 import { Item, SharedItem } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
+import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
 import { SessionStore } from '../../../core/session/session.store';
+import { ToastStore } from '../../../core/toast/toast.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { friendlyApiError, normalizeReservationRequest } from '../functions';
 import { OwnedItemEditor } from '../owned-item-editor/owned-item-editor';
@@ -16,6 +18,8 @@ import { SharedItemDetailPageData } from './models';
 })
 export class SharedItemDetailPageComponent {
   readonly #sharingApi = inject(SharingApi);
+  readonly #inbox = inject(NotificationInboxStore);
+  readonly #toast = inject(ToastStore);
   readonly detail = input.required<SharedItemDetailPageData>();
   readonly session = inject(SessionStore);
   readonly ownedItem = linkedSignal(() => this.detail().ownedItem);
@@ -35,8 +39,12 @@ export class SharedItemDetailPageComponent {
     try {
       await this.#sharingApi.requestGlobalReservation(item.id, input);
       this.error.set('');
+      this.#toast.success('Reservation requested.');
+      void this.#inbox.refresh();
     } catch (error) {
-      this.error.set(friendlyApiError(error, 'We could not request that Reservation.'));
+      const message = friendlyApiError(error, 'We could not request that Reservation.');
+      this.error.set(message);
+      this.#toast.error(message);
     }
   }
 }

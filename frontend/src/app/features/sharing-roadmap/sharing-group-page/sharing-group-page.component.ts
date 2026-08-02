@@ -11,12 +11,14 @@ import {
 import { SharingApi } from '../../../core/api/sharing-api.service';
 import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
 import { SessionStore } from '../../../core/session/session.store';
+import { ToastStore } from '../../../core/toast/toast.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { MaterialSymbolIconComponent } from '../../../ui/material-symbol-icon/material-symbol-icon.component';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
 import {
   DEFAULT_SHARING_GROUP_ICON,
   SHARING_GROUP_PHOTO_ACCEPT,
+  friendlyApiError,
   sharingGroupPhotoInputError,
 } from '../functions';
 import { SharingPageSharedItemComponent } from '../sharing-page-shared-item/sharing-page-shared-item.component';
@@ -30,6 +32,7 @@ import { SharingPageSharedItemComponent } from '../sharing-page-shared-item/shar
 export class SharingGroupPageComponent implements OnDestroy {
   readonly #api = inject(SharingApi);
   readonly #inbox = inject(NotificationInboxStore);
+  readonly #toast = inject(ToastStore);
   readonly #route = inject(ActivatedRoute);
   readonly session = inject(SessionStore);
   readonly defaultSharingGroupIcon = DEFAULT_SHARING_GROUP_ICON;
@@ -193,13 +196,25 @@ export class SharingGroupPageComponent implements OnDestroy {
   }
 
   async acceptReservation(reservation: Reservation): Promise<void> {
-    await this.#api.acceptReservation(reservation.id);
-    await this.load();
+    try {
+      await this.#api.acceptReservation(reservation.id);
+      this.#toast.success('Reservation accepted.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(friendlyApiError(error, 'We could not accept that Reservation.'));
+    }
   }
 
   async declineReservation(reservation: Reservation): Promise<void> {
-    await this.#api.declineReservation(reservation.id);
-    await this.load();
+    try {
+      await this.#api.declineReservation(reservation.id);
+      this.#toast.success('Reservation declined.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(friendlyApiError(error, 'We could not decline that Reservation.'));
+    }
   }
 
   async approveChangeProposal(proposal: ReservationChangeProposal): Promise<void> {

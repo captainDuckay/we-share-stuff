@@ -192,18 +192,6 @@ export class SharingPageComponent {
     );
   }
 
-  attentionReceivedReservations(): readonly Reservation[] {
-    return this.receivedReservations().filter((reservation) => reservation.status === 'pending');
-  }
-
-  attentionRequestedReservations(): readonly Reservation[] {
-    return this.requestedReservations().filter(
-      (reservation) =>
-        reservation.conflictsWithAcceptedReservation &&
-        !this.isAttentionDismissed(`reservation-conflict:${reservation.id}`),
-    );
-  }
-
   isAttentionDismissed(id: string): boolean {
     return this.dismissedAttentionIds().has(id);
   }
@@ -330,9 +318,13 @@ export class SharingPageComponent {
     try {
       await this.#api.requestReservation(request.group.id, request.item.id, input);
       this.announcement.set('Reservation requested.');
+      this.#toast.success('Reservation requested.');
+      void this.#inbox.refresh();
       await this.#refreshReservationsAndSharedItems();
     } catch (error) {
-      this.formError.set(friendlyApiError(error, 'We could not request that Reservation.'));
+      const message = friendlyApiError(error, 'We could not request that Reservation.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }
@@ -414,17 +406,27 @@ export class SharingPageComponent {
     if (this.busyKey()) return;
     this.busyKey.set(`${decision}-reservation:${reservation.id}`);
     this.formError.set('');
+    const successMessage =
+      decision === 'accept'
+        ? 'Reservation accepted.'
+        : decision === 'decline'
+          ? 'Reservation declined.'
+          : decision === 'withdraw'
+            ? 'Reservation withdrawn.'
+            : 'Reservation cancelled.';
     try {
       if (decision === 'accept') await this.#api.acceptReservation(reservation.id);
       else if (decision === 'decline') await this.#api.declineReservation(reservation.id);
       else if (decision === 'withdraw') await this.#api.withdrawReservation(reservation.id);
       else await this.#api.cancelReservation(reservation.id);
-      this.announcement.set(
-        `Reservation ${decision === 'accept' ? 'accepted' : decision === 'decline' ? 'declined' : decision === 'withdraw' ? 'withdrawn' : 'cancelled'}.`,
-      );
+      this.announcement.set(successMessage);
+      this.#toast.success(successMessage);
+      void this.#inbox.refresh();
       await this.#refreshReservationsAndSharedItems();
     } catch (error) {
-      this.formError.set(friendlyApiError(error, 'We could not update that Reservation.'));
+      const message = friendlyApiError(error, 'We could not update that Reservation.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }
