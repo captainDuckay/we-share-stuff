@@ -36,6 +36,20 @@
       </div>
     }
   </header>
+  @if (session.status() === 'authenticated' && showNotificationPrototypeEntry() && !notificationPrototypeVariant()) {
+    <p class="app__proto-entry" role="note">
+      <strong>PROTOTYPE (#34)</strong>
+      Notification Center + toast shell placement.
+      <button type="button" (click)="enterNotificationPrototype()">Open prototype (variant A)</button>
+    </p>
+  }
+  @if (notificationPrototypeVariant(); as variant) {
+    <app-notification-ui-prototype-host
+      [variant]="variant"
+      (variantChange)="setNotificationPrototypeVariant($event)"
+      (exit)="exitNotificationPrototype()"
+    />
+  }
   @if (session.status() === 'checking') {
     <p role="status">Checking your session…</p>
   } @else {
