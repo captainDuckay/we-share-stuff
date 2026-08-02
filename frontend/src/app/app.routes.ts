@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/routing/auth.guard';
+import { guestGuard } from './core/routing/guest.guard';
 import { AuthPageComponent } from './features/auth/auth-page/auth-page.component';
 import { BrowsePageComponent } from './features/sharing-roadmap/browse-page/browse-page.component';
 import { MyReservationsPageComponent } from './features/sharing-roadmap/my-reservations-page/my-reservations-page.component';
@@ -11,8 +12,18 @@ import { SharingPageComponent } from './features/sharing-roadmap/sharing-page/sh
 import { sharedItemDetailPageResolver } from './features/sharing-roadmap/shared-item-detail-page/shared-item-detail-page.resolver';
 
 export const routes: Routes = [
-  { path: 'sign-in', component: AuthPageComponent, data: { mode: 'sign-in' } },
-  { path: 'register', component: AuthPageComponent, data: { mode: 'register' } },
+  {
+    path: 'sign-in',
+    component: AuthPageComponent,
+    canActivate: [guestGuard],
+    data: { mode: 'sign-in' },
+  },
+  {
+    path: 'register',
+    component: AuthPageComponent,
+    canActivate: [guestGuard],
+    data: { mode: 'register' },
+  },
   { path: 'home', component: SharingPageComponent, canActivate: [authGuard] },
   { path: 'browse', component: BrowsePageComponent, canActivate: [authGuard] },
   { path: 'share-a-tool', component: ShareToolPageComponent, canActivate: [authGuard] },
