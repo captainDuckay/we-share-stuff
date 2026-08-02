@@ -1,41 +1,16 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { MaterialSymbolIconComponent } from '../../ui/material-symbol-icon/material-symbol-icon.component';
-import {
-  PrototypeNotification,
-  PrototypeToast,
-  badgeLabel,
-  kindLabel,
-  unreadCount,
-} from './fixtures';
+import { PrototypeNotification, PrototypeToast, kindLabel } from './fixtures';
 
 /**
- * Variant A — classic shell: header bell + right drawer + bottom-right toasts.
- * Dense list; non-modal drawer with scrim; badge on bell.
+ * Variant A — classic shell: header inbox trigger (in real app header) + right drawer + bottom-right toasts.
+ * Dense list; non-modal drawer with scrim; badge on inbox control.
+ * Trigger lives in app.html (left of account avatar) so it participates in real header flex.
  */
 @Component({
   selector: 'app-notification-proto-variant-a',
   imports: [MaterialSymbolIconComponent],
   template: `
-    <!-- Entry: header bell (projected into shell chrome via fixed position) -->
-    <div class="va-trigger-slot">
-      <button
-        type="button"
-        class="va-bell"
-        [attr.aria-expanded]="centerOpen()"
-        [attr.aria-label]="
-          unread() > 0
-            ? 'Open Notification Center, ' + unread() + ' unread'
-            : 'Open Notification Center'
-        "
-        (click)="toggleCenter.emit()"
-      >
-        <app-material-symbol-icon name="notifications" aria-hidden="true" />
-        @if (badge(); as label) {
-          <span class="va-badge" aria-hidden="true">{{ label }}</span>
-        }
-      </button>
-    </div>
-
     @if (centerOpen()) {
       <div class="va-scrim" (click)="closeCenter.emit()" aria-hidden="true"></div>
       <aside
@@ -100,44 +75,6 @@ import {
     </div>
   `,
   styles: `
-    .va-trigger-slot {
-      position: fixed;
-      top: var(--space-4);
-      right: calc(var(--space-4) + var(--size-avatar) + var(--space-3));
-      z-index: 30;
-    }
-    .va-bell {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: var(--radius-full);
-      border: var(--border-width) solid var(--border);
-      background: var(--card);
-      color: var(--foreground);
-      padding: 0;
-    }
-    .va-bell app-material-symbol-icon {
-      display: inline-flex;
-      font-size: 1.35rem;
-    }
-    .va-badge {
-      position: absolute;
-      top: -0.2rem;
-      right: -0.2rem;
-      min-width: 1.15rem;
-      height: 1.15rem;
-      padding: 0 0.25rem;
-      border-radius: var(--radius-full);
-      background: var(--destructive);
-      color: var(--destructive-foreground);
-      font-size: 0.65rem;
-      font-weight: 700;
-      line-height: 1.15rem;
-      text-align: center;
-    }
     .va-scrim {
       position: fixed;
       inset: 0;
@@ -321,9 +258,6 @@ export class NotificationProtoVariantA {
   readonly closeCenter = output<void>();
   readonly openItem = output<PrototypeNotification>();
   readonly dismissToast = output<string>();
-
-  readonly unread = computed(() => unreadCount(this.notifications()));
-  readonly badge = computed(() => badgeLabel(this.unread()));
 
   readonly kindLabel = kindLabel;
 }

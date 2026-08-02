@@ -45,6 +45,48 @@
   anchor-name: --account-menu-trigger;
 }
 
+/* PROTOTYPE (#34) variant A — inbox entry left of account avatar in real header flex */
+.app__proto-inbox-trigger {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-avatar);
+  height: var(--size-avatar);
+  padding: 0;
+  border-radius: var(--radius-full);
+  border: var(--border-width) solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.app__proto-inbox-trigger app-material-symbol-icon {
+  display: inline-flex;
+  font-size: 1.35rem;
+}
+
+.app__proto-inbox-trigger:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.app__proto-inbox-badge {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-full);
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
 .app__account-menu {
   background: var(--popover);
   border: var(--border-width) solid var(--border);

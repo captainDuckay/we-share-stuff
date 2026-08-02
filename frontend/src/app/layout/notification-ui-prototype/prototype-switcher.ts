@@ -6,7 +6,7 @@ export const PROTOTYPE_VARIANTS: ReadonlyArray<{
   key: PrototypeVariantKey;
   name: string;
 }> = [
-  { key: 'A', name: 'Header bell · right drawer · BR toasts' },
+  { key: 'A', name: 'Header inbox · right drawer · BR toasts' },
   { key: 'B', name: 'Nav Inbox · modal sheet · top toasts' },
   { key: 'C', name: 'Account popover · dense · BC toasts' },
 ];

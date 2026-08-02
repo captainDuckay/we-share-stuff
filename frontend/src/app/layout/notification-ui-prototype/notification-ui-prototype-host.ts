@@ -191,6 +191,13 @@ export class NotificationUiPrototypeHost {
 
   readonly notifications = computed(() => this.fixtures().notifications);
   readonly unread = computed(() => unreadCount(this.notifications()));
+  /** Public for shell header trigger (variant A) — empty string when none. */
+  readonly badgeLabel = computed(() => {
+    const count = this.unread();
+    if (count <= 0) return '';
+    if (count > 9) return '9+';
+    return String(count);
+  });
   readonly dump = computed(() => ({
     variant: this.variant(),
     scenarioId: this.scenarioId(),

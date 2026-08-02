@@ -13,6 +13,20 @@
         <a routerLink="/reservations">My reservations</a>
         <a routerLink="/sharing-groups">Sharing groups</a>
       </nav>
+      @if (notificationPrototypeVariant() === 'A') {
+        <button
+          type="button"
+          class="app__proto-inbox-trigger"
+          [attr.aria-expanded]="protoHost()?.centerOpen() ?? false"
+          [attr.aria-label]="protoInboxAriaLabel()"
+          (click)="protoHost()?.onToggleCenter()"
+        >
+          <app-material-symbol-icon name="inbox" aria-hidden="true" />
+          @if (protoHost()?.badgeLabel(); as label) {
+            <span class="app__proto-inbox-badge" aria-hidden="true">{{ label }}</span>
+          }
+        </button>
+      }
       <button
         app-user-avatar
         class="app__account-trigger"
@@ -45,6 +59,7 @@
   }
   @if (notificationPrototypeVariant(); as variant) {
     <app-notification-ui-prototype-host
+      #notificationProtoHost
       [variant]="variant"
       (variantChange)="setNotificationPrototypeVariant($event)"
       (exit)="exitNotificationPrototype()"

@@ -1,4 +1,4 @@
-import { isDevMode, Component, effect, inject, signal } from '@angular/core';
+import { isDevMode, Component, effect, inject, signal, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
@@ -7,6 +7,7 @@ import { SessionStore } from './core/session/session.store';
 import { UserAvatar } from './features/user-avatar/user-avatar/user-avatar';
 import { NotificationUiPrototypeHost } from './layout/notification-ui-prototype/notification-ui-prototype-host';
 import type { PrototypeVariantKey } from './layout/notification-ui-prototype/prototype-switcher';
+import { MaterialSymbolIconComponent } from './ui/material-symbol-icon/material-symbol-icon.component';
 
 const DEFAULT_PROTECTED_ROUTE = '/home';
 const PROTECTED_ROUTES = ['/sharing'] as const;
@@ -16,13 +17,21 @@ const isPrototypeVariant = (value: string | null | undefined): value is Prototyp
 
 @Component({
   selector: 'app-root',
-  imports: [DialogInertRoot, RouterOutlet, RouterLink, UserAvatar, NotificationUiPrototypeHost],
+  imports: [
+    DialogInertRoot,
+    RouterOutlet,
+    RouterLink,
+    UserAvatar,
+    NotificationUiPrototypeHost,
+    MaterialSymbolIconComponent,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App {
   readonly session = inject(SessionStore);
   readonly accountMenuOpen = signal(false);
+  readonly protoHost = viewChild('notificationProtoHost', { read: NotificationUiPrototypeHost });
   readonly #router = inject(Router);
   readonly #protectedRouteRedirect = effect(() => {
     if (
@@ -49,6 +58,14 @@ export class App {
   );
 
   readonly showNotificationPrototypeEntry = isDevMode;
+
+  protoInboxAriaLabel(): string {
+    const host = this.protoHost();
+    const unread = host?.unread() ?? 0;
+    return unread > 0
+      ? `Open Notification Center, ${unread} unread`
+      : 'Open Notification Center';
+  }
 
   accountMenuToggled(event: Event): void {
     const menu = event.currentTarget;
