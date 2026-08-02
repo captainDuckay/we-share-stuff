@@ -508,3 +508,475 @@ def test_invitation_emission_failure_rolls_back_domain_mutation(
     invitee_headers = use_session(client, invitee)
     inbox = client.get("/api/notifications", headers=invitee_headers).json()
     assert inbox["total"] == 0
+
+
+# --- Reservation Request emission (kind catalog matrix) ---
+
+
+def _create_location(client: TestClient, headers: dict[str, str]) -> dict:
+    response = client.post(
+        "/api/typical-locations",
+        headers=headers,
+        json={
+            "name": "Home",
+            "details": "Main Street 1",
+            "timezone": "Europe/Copenhagen",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()["typicalLocation"]
+
+
+def _create_item(
+    client: TestClient, headers: dict[str, str], location_id: str
+) -> dict:
+    response = client.post(
+        "/api/items",
+        headers=headers,
+        json={
+            "name": "Tent",
+            "description": "Two person",
+            "typicalLocationId": location_id,
+            "typicalPlacement": "Garage",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()["item"]
+
+
+def _shared_reservation_setup(
+    client: TestClient,
+    owner_email: str,
+    requester_email: str,
+    owner_name: str = "Owner",
+    requester_name: str = "Requester",
+) -> tuple[ApiSession, ApiSession, str, dict]:
+    owner = register_user(client, owner_email, owner_name)
+    requester = register_user(client, requester_email, requester_name)
+    owner_headers = use_session(client, owner)
+    group = _create_group(client, owner_headers, "Trail Club")
+    invite = client.post(
+        f"/api/sharing-groups/{group['id']}/invitations",
+        headers=owner_headers,
+        json={"email": requester_email},
+    )
+    assert invite.status_code == 201
+    invitation_id = invite.json()["invitation"]["id"]
+    requester_headers = use_session(client, requester)
+    accepted = client.post(
+        f"/api/invitations/{invitation_id}/accept", headers=requester_headers
+    )
+    assert accepted.status_code == 200
+    owner_headers = use_session(client, owner)
+    location = _create_location(client, owner_headers)
+    item = _create_item(client, owner_headers, location["id"])
+    share = client.post(
+        f"/api/items/{item['id']}/sharing-groups/{group['id']}",
+        headers=owner_headers,
+    )
+    assert share.status_code == 201
+    return owner, requester, group["id"], item
+
+
+def _request_reservation(
+    client: TestClient,
+    requester: ApiSession,
+    group_id: str,
+    item_id: str,
+    *,
+    start_local: str = "2099-09-01T10:00:00",
+    end_local: str = "2099-09-01T12:00:00",
+) -> dict:
+    headers = use_session(client, requester)
+    response = client.post(
+        f"/api/sharing-groups/{group_id}/shared-items/{item_id}/reservations",
+        headers=headers,
+        json={"startLocal": start_local, "endLocal": end_local},
+    )
+    assert response.status_code == 201
+    return response.json()["reservation"]
+
+
+def test_reservation_create_notifies_owner_only_not_requester(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-create-owner@example.com",
+        "rr-create-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+
+    owner_headers = use_session(client, owner)
+    owner_inbox = client.get("/api/notifications", headers=owner_headers).json()
+    # Invitation accepted may leave owner with no invitation row; only RR counts.
+    rr_rows = [
+        row
+        for row in owner_inbox["notifications"]
+        if row["kind"] == "reservation_request"
+    ]
+    assert len(rr_rows) == 1
+    row = rr_rows[0]
+    assert row["subjectId"] == reservation["id"]
+    assert row["subjectStatus"] == "pending"
+    assert row["attention"] == "unread"
+    assert "Tent" in row["summary"]
+    assert "Bob" in row["summary"]
+    assert row["deepLink"]["surface"] == "reservations"
+    assert row["deepLink"]["reservationId"] == reservation["id"]
+    assert row["payload"]["itemName"] == "Tent"
+    assert row["payload"]["otherPartyDisplayName"] == "Bob"
+    assert row["payload"]["timezone"] == "Europe/Copenhagen"
+    assert owner_inbox["unreadCount"] >= 1
+
+    requester_headers = use_session(client, requester)
+    requester_inbox = client.get("/api/notifications", headers=requester_headers).json()
+    rr_for_requester = [
+        row
+        for row in requester_inbox["notifications"]
+        if row["kind"] == "reservation_request"
+    ]
+    assert rr_for_requester == []
+
+
+def test_reservation_accept_updates_owner_read_and_creates_requester_unread(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-accept-owner@example.com",
+        "rr-accept-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    reservation_id = reservation["id"]
+
+    owner_headers = use_session(client, owner)
+    before = client.get("/api/notifications", headers=owner_headers).json()
+    owner_row_id = next(
+        row["id"]
+        for row in before["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+
+    accepted = client.post(
+        f"/api/reservations/{reservation_id}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr = next(
+        row
+        for row in owner_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert owner_rr["id"] == owner_row_id
+    assert owner_rr["subjectStatus"] == "accepted"
+    assert owner_rr["attention"] == "read"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    requester_rr = next(
+        row
+        for row in requester_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert requester_rr["subjectId"] == reservation_id
+    assert requester_rr["subjectStatus"] == "accepted"
+    assert requester_rr["attention"] == "unread"
+    assert "Ada" in requester_rr["summary"]
+    assert requester_rr["deepLink"]["surface"] == "reservations"
+
+
+def test_reservation_decline_updates_owner_and_creates_requester(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-decline-owner@example.com",
+        "rr-decline-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    reservation_id = reservation["id"]
+
+    owner_headers = use_session(client, owner)
+    declined = client.post(
+        f"/api/reservations/{reservation_id}/decline", headers=owner_headers
+    )
+    assert declined.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr = next(
+        row
+        for row in owner_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert owner_rr["subjectStatus"] == "declined"
+    assert owner_rr["attention"] == "read"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    requester_rr = next(
+        row
+        for row in requester_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert requester_rr["subjectStatus"] == "declined"
+    assert requester_rr["attention"] == "unread"
+
+
+def test_reservation_withdraw_updates_owner_reunread_no_requester_row(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-withdraw-owner@example.com",
+        "rr-withdraw-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    reservation_id = reservation["id"]
+
+    owner_headers = use_session(client, owner)
+    listed = client.get("/api/notifications", headers=owner_headers).json()
+    notification_id = next(
+        row["id"]
+        for row in listed["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    mark = client.post(
+        f"/api/notifications/{notification_id}/read", headers=owner_headers
+    )
+    assert mark.status_code == 200
+    assert (
+        client.get("/api/notifications/unread-count", headers=owner_headers).json()[
+            "unreadCount"
+        ]
+        == 0
+    )
+
+    requester_headers = use_session(client, requester)
+    withdrawn = client.post(
+        f"/api/reservations/{reservation_id}/withdraw", headers=requester_headers
+    )
+    assert withdrawn.status_code == 200
+
+    owner_headers = use_session(client, owner)
+    after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr = next(
+        row for row in after["notifications"] if row["kind"] == "reservation_request"
+    )
+    assert owner_rr["id"] == notification_id
+    assert owner_rr["subjectStatus"] == "withdrawn"
+    assert owner_rr["attention"] == "unread"
+    assert "Bob" in owner_rr["summary"]
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    assert [
+        row
+        for row in requester_after["notifications"]
+        if row["kind"] == "reservation_request"
+    ] == []
+
+
+def test_reservation_cancel_by_owner_creates_requester_row_and_reads_actor(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-cancel-owner@example.com",
+        "rr-cancel-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    reservation_id = reservation["id"]
+    owner_headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation_id}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+
+    cancelled = client.post(
+        f"/api/reservations/{reservation_id}/cancel", headers=owner_headers
+    )
+    assert cancelled.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr = next(
+        row
+        for row in owner_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert owner_rr["subjectStatus"] == "cancelled"
+    assert owner_rr["attention"] == "read"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    requester_rr = next(
+        row
+        for row in requester_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert requester_rr["subjectStatus"] == "cancelled"
+    assert requester_rr["attention"] == "unread"
+
+
+def test_reservation_cancel_by_requester_notifies_owner(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-cancel-req-owner@example.com",
+        "rr-cancel-req-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    reservation_id = reservation["id"]
+    owner_headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation_id}/accept", headers=owner_headers
+    )
+    assert accepted.status_code == 200
+
+    # Owner marks Read after accept (own action already Read; mark is idempotent).
+    owner_list = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr_id = next(
+        row["id"]
+        for row in owner_list["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+
+    requester_headers = use_session(client, requester)
+    cancelled = client.post(
+        f"/api/reservations/{reservation_id}/cancel", headers=requester_headers
+    )
+    assert cancelled.status_code == 200
+
+    owner_headers = use_session(client, owner)
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr = next(
+        row
+        for row in owner_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    assert owner_rr["id"] == owner_rr_id
+    assert owner_rr["subjectStatus"] == "cancelled"
+    assert owner_rr["attention"] == "unread"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    requester_rr = next(
+        row
+        for row in requester_after["notifications"]
+        if row["kind"] == "reservation_request"
+    )
+    # Requester already had a row from accept; cancel as actor sets Read.
+    assert requester_rr["subjectStatus"] == "cancelled"
+    assert requester_rr["attention"] == "read"
+
+
+def test_reservation_system_decline_on_leave_notifies_owner_not_requester(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-leave-owner@example.com",
+        "rr-leave-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    reservation_id = reservation["id"]
+
+    requester_headers = use_session(client, requester)
+    left = client.delete(
+        f"/api/sharing-groups/{group_id}/members/me", headers=requester_headers
+    )
+    assert left.status_code == 204
+
+    owner_headers = use_session(client, owner)
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rr = next(
+        row
+        for row in owner_after["notifications"]
+        if row["kind"] == "reservation_request"
+        and row["subjectId"] == reservation_id
+    )
+    assert owner_rr["subjectStatus"] == "declined"
+    assert owner_rr["attention"] == "unread"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    assert [
+        row
+        for row in requester_after["notifications"]
+        if row["kind"] == "reservation_request"
+    ] == []
+
+
+def test_reservation_emission_failure_rolls_back_domain_mutation(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.routers.reservations as reservations_router
+
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rr-fail-owner@example.com",
+        "rr-fail-req@example.com",
+    )
+
+    async def boom(*_args, **_kwargs):
+        raise RuntimeError("emission failed")
+
+    monkeypatch.setattr(
+        reservations_router, "emit_reservation_request_notifications", boom
+    )
+
+    requester_headers = use_session(client, requester)
+    with pytest.raises(RuntimeError, match="emission failed"):
+        client.post(
+            f"/api/sharing-groups/{group_id}/shared-items/{item['id']}/reservations",
+            headers=requester_headers,
+            json={
+                "startLocal": "2099-10-01T10:00:00",
+                "endLocal": "2099-10-01T12:00:00",
+            },
+        )
+
+    # Domain write rolled back.
+    owner_headers = use_session(client, owner)
+    received = client.get(
+        "/api/reservations",
+        headers=owner_headers,
+        params={"scope": "received"},
+    )
+    assert received.status_code == 200
+    assert received.json()["reservations"] == []
+
+    owner_inbox = client.get("/api/notifications", headers=owner_headers).json()
+    assert [
+        row
+        for row in owner_inbox["notifications"]
+        if row["kind"] == "reservation_request"
+    ] == []

@@ -17,16 +17,9 @@
     <p class="sharing-page__error" role="alert">{{ formError() }}</p>
   }
 
-  <section class="sharing-page__panel" aria-labelledby="home-attention-title">
-    <h2 id="home-attention-title">Attention</h2>
-    @if (
-      !loading() &&
-      attentionReceivedReservations().length === 0 &&
-      attentionRequestedReservations().length === 0 &&
-      attentionChangeProposals().length === 0
-    ) {
-      <p>No attention items right now.</p>
-    } @else {
+  @if (attentionChangeProposals().length > 0) {
+    <section class="sharing-page__panel" aria-labelledby="home-attention-title">
+      <h2 id="home-attention-title">Attention</h2>
       <ul class="sharing-page__plain-list sharing-page__compact-list">
         @for (proposal of attentionChangeProposals(); track proposal.id) {
           <li class="sharing-page__list-item">
@@ -59,45 +52,9 @@
             }
           </li>
         }
-        @for (reservation of attentionReceivedReservations(); track reservation.id) {
-          <li class="sharing-page__list-item">
-            <strong>Reservation Request</strong>
-            <span
-              >{{ reservation.item.name }} requested by
-              {{ reservation.requester.displayName }}</span
-            >
-            <button
-              class="sharing-page__button"
-              type="button"
-              (click)="acceptReservation(reservation)"
-            >
-              Accept
-            </button>
-            <button
-              class="sharing-page__button"
-              type="button"
-              (click)="declineReservation(reservation)"
-            >
-              Decline
-            </button>
-          </li>
-        }
-        @for (reservation of attentionRequestedReservations(); track reservation.id) {
-          <li class="sharing-page__list-item">
-            <strong>Reservation Request needs new dates</strong>
-            <span>{{ reservation.item.name }} now conflicts with an Accepted Reservation.</span>
-            <button
-              class="sharing-page__button"
-              type="button"
-              (click)="dismissAttention('reservation-conflict:' + reservation.id)"
-            >
-              Dismiss
-            </button>
-          </li>
-        }
       </ul>
-    }
-  </section>
+    </section>
+  }
 
   <section class="sharing-page__panel" aria-labelledby="browse-shared-items-title">
     <h2 id="browse-shared-items-title">
