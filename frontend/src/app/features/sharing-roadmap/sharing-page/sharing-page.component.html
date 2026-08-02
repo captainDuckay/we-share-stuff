@@ -21,7 +21,6 @@
     <h2 id="home-attention-title">Attention</h2>
     @if (
       !loading() &&
-      myInvitations().length === 0 &&
       attentionReceivedReservations().length === 0 &&
       attentionRequestedReservations().length === 0 &&
       attentionChangeProposals().length === 0
@@ -29,26 +28,6 @@
       <p>No attention items right now.</p>
     } @else {
       <ul class="sharing-page__plain-list sharing-page__compact-list">
-        @for (invitation of myInvitations(); track invitation.id) {
-          <li class="sharing-page__list-item">
-            <strong>Invitation</strong>
-            <span>{{ invitation.sharingGroup.name }} invited {{ invitation.invitedEmail }}</span>
-            <button
-              class="sharing-page__button"
-              type="button"
-              (click)="acceptInvitation(invitation)"
-            >
-              Accept
-            </button>
-            <button
-              class="sharing-page__button"
-              type="button"
-              (click)="declineInvitation(invitation)"
-            >
-              Decline
-            </button>
-          </li>
-        }
         @for (proposal of attentionChangeProposals(); track proposal.id) {
           <li class="sharing-page__list-item">
             <strong>Reservation Change Proposal</strong>

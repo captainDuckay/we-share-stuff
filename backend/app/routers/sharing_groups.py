@@ -25,6 +25,7 @@ from app.models import (
     SharingGroupMember,
     User,
 )
+from app.notification_emission import emit_invitation_notification
 from app.problems import problem
 from app.schemas import (
     InvitationAcceptEnvelope,
@@ -240,6 +241,15 @@ async def create_invitation(
         )
     invitation = Invitation(sharing_group_id=group.id, invited_email=invited_email)
     db.add(invitation)
+    await db.flush()
+    inviter = await db.get(User, current.user.id)
+    await emit_invitation_notification(
+        db,
+        invitation=invitation,
+        sharing_group=group,
+        inviter=inviter,
+        actor_user_id=None,
+    )
     await db.commit()
     await db.refresh(invitation)
     return InvitationEnvelope(invitation=await invitation_response(db, invitation))
@@ -288,6 +298,14 @@ async def cancel_invitation(
         raise problem(409, "invitation_not_pending", "Invitation is not pending")
     invitation.status = "cancelled"
     invitation.responded_at = now_utc()
+    inviter = await db.get(User, current.user.id)
+    await emit_invitation_notification(
+        db,
+        invitation=invitation,
+        sharing_group=group,
+        inviter=inviter,
+        actor_user_id=current.user.id,
+    )
     await db.commit()
 
 
@@ -323,6 +341,14 @@ async def accept_invitation(
     db.add(SharingGroupMember(sharing_group_id=group.id, user_id=current.user.id))
     invitation.status = "accepted"
     invitation.responded_at = now_utc()
+    inviter = await db.get(User, group.created_by_id)
+    await emit_invitation_notification(
+        db,
+        invitation=invitation,
+        sharing_group=group,
+        inviter=inviter,
+        actor_user_id=current.user.id,
+    )
     await db.commit()
     await db.refresh(invitation)
     await db.refresh(group)
@@ -339,8 +365,19 @@ async def decline_invitation(
     current: AuthenticatedMutation,
 ) -> InvitationEnvelope:
     invitation = await pending_invitation(db, invitation_id, current.user.email)
+    group = await db.get(SharingGroup, invitation.sharing_group_id)
+    if group is None:
+        raise problem(404, "invitation_not_found", "Invitation was not found")
     invitation.status = "declined"
     invitation.responded_at = now_utc()
+    inviter = await db.get(User, group.created_by_id)
+    await emit_invitation_notification(
+        db,
+        invitation=invitation,
+        sharing_group=group,
+        inviter=inviter,
+        actor_user_id=current.user.id,
+    )
     await db.commit()
     await db.refresh(invitation)
     return InvitationEnvelope(invitation=await invitation_response(db, invitation))

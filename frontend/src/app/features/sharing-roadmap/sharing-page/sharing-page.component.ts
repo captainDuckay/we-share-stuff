@@ -12,7 +12,9 @@ import {
   SharingGroupMember,
 } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
+import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
 import { SessionStore } from '../../../core/session/session.store';
+import { ToastStore } from '../../../core/toast/toast.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
 import {
@@ -51,6 +53,8 @@ import {
 export class SharingPageComponent {
   readonly #api = inject(SharingApi);
   readonly #inventoryApi = inject(InventoryApi);
+  readonly #inbox = inject(NotificationInboxStore);
+  readonly #toast = inject(ToastStore);
   readonly session = inject(SessionStore);
   readonly groupNameMaxLength = GROUP_NAME_MAX_LENGTH;
   readonly groups = signal<readonly SharingGroup[]>([]);
@@ -66,11 +70,6 @@ export class SharingPageComponent {
   >({});
   readonly globalSharedItems = computed(() =>
     globalSharedItemEntries(this.groups(), this.sharedItemsByGroup()),
-  );
-  readonly attentionCount = computed(
-    () =>
-      this.myInvitations().length +
-      this.receivedReservations().filter((reservation) => reservation.status === 'pending').length,
   );
   readonly loading = signal(true);
   readonly error = signal('');
@@ -107,6 +106,8 @@ export class SharingPageComponent {
       this.inventoryItems.set(inventory.items);
       await this.#loadGroupDetails(groups.sharingGroups);
       await this.#loadChangeProposals([...requested.reservations, ...received.reservations]);
+      // Destination open: invitation deep links use surface "home" (pending/cancelled/declined).
+      void this.#inbox.markDeepLinkRead({ surface: 'home' });
     } catch {
       this.error.set('We could not load your sharing details.');
     } finally {
@@ -223,11 +224,13 @@ export class SharingPageComponent {
     try {
       await this.#api.createInvitation(group.id, input);
       this.announcement.set('Invitation sent.');
+      this.#toast.success('Invitation sent.');
       await this.#loadInvitationsForGroup(group);
     } catch (error) {
-      this.formError.set(
-        fieldError(error, 'email') || friendlyApiError(error, 'We could not send that Invitation.'),
-      );
+      const message =
+        fieldError(error, 'email') || friendlyApiError(error, 'We could not send that Invitation.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }
@@ -240,9 +243,12 @@ export class SharingPageComponent {
     try {
       await this.#api.cancelInvitation(group.id, invitation.id);
       this.announcement.set('Invitation cancelled.');
+      this.#toast.success('Invitation cancelled.');
       await this.#loadInvitationsForGroup(group);
     } catch (error) {
-      this.formError.set(friendlyApiError(error, 'We could not cancel that Invitation.'));
+      const message = friendlyApiError(error, 'We could not cancel that Invitation.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }
@@ -255,9 +261,13 @@ export class SharingPageComponent {
     try {
       await this.#api.acceptInvitation(invitation.id);
       this.announcement.set('Invitation accepted.');
+      this.#toast.success('Invitation accepted.');
+      void this.#inbox.refresh();
       await this.load();
     } catch (error) {
-      this.formError.set(friendlyApiError(error, 'We could not accept that Invitation.'));
+      const message = friendlyApiError(error, 'We could not accept that Invitation.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }
@@ -270,9 +280,13 @@ export class SharingPageComponent {
     try {
       await this.#api.declineInvitation(invitation.id);
       this.announcement.set('Invitation declined.');
+      this.#toast.success('Invitation declined.');
+      void this.#inbox.refresh();
       await this.load();
     } catch (error) {
-      this.formError.set(friendlyApiError(error, 'We could not decline that Invitation.'));
+      const message = friendlyApiError(error, 'We could not decline that Invitation.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }

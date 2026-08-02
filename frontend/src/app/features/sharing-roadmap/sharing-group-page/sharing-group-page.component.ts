@@ -9,6 +9,7 @@ import {
   SharingGroupMember,
 } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
+import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
 import { SessionStore } from '../../../core/session/session.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
 import { MaterialSymbolIconComponent } from '../../../ui/material-symbol-icon/material-symbol-icon.component';
@@ -28,6 +29,7 @@ import { SharingPageSharedItemComponent } from '../sharing-page-shared-item/shar
 })
 export class SharingGroupPageComponent implements OnDestroy {
   readonly #api = inject(SharingApi);
+  readonly #inbox = inject(NotificationInboxStore);
   readonly #route = inject(ActivatedRoute);
   readonly session = inject(SessionStore);
   readonly defaultSharingGroupIcon = DEFAULT_SHARING_GROUP_ICON;
@@ -88,6 +90,11 @@ export class SharingGroupPageComponent implements OnDestroy {
           response.changeProposals.filter((proposal) => proposal.status === 'pending'),
         ),
       );
+      // Destination open for invitation rows deep-linked to this Sharing Group.
+      void this.#inbox.markDeepLinkRead({
+        surface: 'sharing_group',
+        sharingGroupId: groupId,
+      });
     } catch {
       this.error.set('We could not load that Sharing Group.');
     } finally {

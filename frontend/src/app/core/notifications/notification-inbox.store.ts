@@ -4,11 +4,17 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { NotificationsApi } from '../api/notifications-api.service';
-import { Notification } from '../api/model';
+import {
+  Notification,
+  NotificationDeepLink,
+  NotificationKind,
+} from '../api/model';
 import { SessionStore } from '../session/session.store';
 import { deepLinkCommands, notificationBadgeLabel } from './functions';
 
 const LIST_PAGE_LIMIT = 20;
+/** Page size when correlating kind + subject for destination mark-read. */
+const SUBJECT_CORRELATION_LIMIT = 50;
 
 @Injectable({ providedIn: 'root' })
 export class NotificationInboxStore {
@@ -149,6 +155,68 @@ export class NotificationInboxStore {
       await this.#router.navigate([...commands]);
     }
   };
+
+  /**
+   * Mark Unread Notifications Read by kind + subject when the User opens the
+   * destination surface for those subjects (not when only opening the Center).
+   */
+  markSubjectsRead = async (
+    kind: NotificationKind,
+    subjectIds: readonly string[],
+  ): Promise<void> => {
+    const ids = [...new Set(subjectIds.filter(Boolean))];
+    if (ids.length === 0) return;
+    try {
+      const rows = await this.#rowsForCorrelation();
+      const targets = rows.filter(
+        (row) =>
+          row.kind === kind &&
+          row.attention === 'unread' &&
+          ids.includes(row.subjectId),
+      );
+      await Promise.all(targets.map((row) => this.markRead(row.id)));
+    } catch {
+      /* silent — no toast */
+    }
+  };
+
+  /**
+   * Mark Unread Notifications Read when the User opens a destination that
+   * matches a structured deep_link (partial field equality).
+   */
+  markDeepLinkRead = async (
+    match: Readonly<Partial<NotificationDeepLink>>,
+  ): Promise<void> => {
+    const entries = Object.entries(match).filter(
+      ([, value]) => value !== undefined && value !== null && value !== '',
+    );
+    if (entries.length === 0) return;
+    try {
+      const rows = await this.#rowsForCorrelation();
+      const targets = rows.filter(
+        (row) =>
+          row.attention === 'unread' &&
+          entries.every(([key, value]) => row.deepLink[key] === value),
+      );
+      await Promise.all(targets.map((row) => this.markRead(row.id)));
+    } catch {
+      /* silent — no toast */
+    }
+  };
+
+  async #rowsForCorrelation(): Promise<readonly Notification[]> {
+    // Always refresh a page for correlation so destination mark-read sees
+    // current Unread rows even when the Center list is empty/closed.
+    const envelope = await this.#api.list({
+      limit: SUBJECT_CORRELATION_LIMIT,
+      offset: 0,
+    });
+    if (this.#centerOpen()) {
+      this.#list.set(envelope.notifications);
+    }
+    this.#unreadCount.set(envelope.unreadCount);
+    return envelope.notifications;
+  }
 
   async #runRefresh(includeList: boolean): Promise<void> {
     try {
