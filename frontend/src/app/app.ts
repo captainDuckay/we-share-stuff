@@ -3,13 +3,14 @@ import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { DialogInertRoot } from './core/dialog/dialog-inert-root';
 import { SessionStore } from './core/session/session.store';
 import { UserAvatar } from './features/user-avatar/user-avatar/user-avatar';
+import { ToastHost } from './layout/toast-host/toast-host';
 
 const DEFAULT_PROTECTED_ROUTE = '/home';
 const PROTECTED_ROUTES = ['/sharing'] as const;
 
 @Component({
   selector: 'app-root',
-  imports: [DialogInertRoot, RouterOutlet, RouterLink, UserAvatar],
+  imports: [DialogInertRoot, RouterOutlet, RouterLink, ToastHost, UserAvatar],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

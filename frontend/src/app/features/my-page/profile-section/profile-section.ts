@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, OnDestroy, signal } from '@
 import { FormField, form, maxLength, submit, validate } from '@angular/forms/signals';
 import { ProfileApi } from '../../../core/api/profile-api.service';
 import { SessionStore } from '../../../core/session/session.store';
+import { ToastStore } from '../../../core/toast/toast.store';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
 import {
   DISPLAY_NAME_MAX_LENGTH,
@@ -18,6 +19,7 @@ import {
 })
 export class ProfileSection implements OnDestroy {
   readonly #api = inject(ProfileApi);
+  readonly #toast = inject(ToastStore);
   readonly session = inject(SessionStore);
   readonly model = signal({ displayName: this.session.user()?.displayName ?? '' });
   readonly profileForm = form(this.model, (path) => {
@@ -101,9 +103,10 @@ export class ProfileSection implements OnDestroy {
     try {
       const response = await this.#api.update({ displayName: this.model().displayName.trim() });
       this.session.updateUser(response.user);
-      this.announcement.set('Profile updated.');
+      this.#toast.success('Profile updated.');
     } catch {
       this.error.set('We could not update your profile.');
+      this.#toast.error('We could not update your profile.');
     } finally {
       this.saving.set(false);
     }

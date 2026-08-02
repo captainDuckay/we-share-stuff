@@ -1,0 +1,23 @@
+@for (toast of toastStore.toasts(); track toast.id) {
+  <div
+    class="toast-host__toast"
+    [class.toast-host__toast--success]="toast.severity === 'success'"
+    [class.toast-host__toast--error]="toast.severity === 'error'"
+    [class.toast-host__toast--warning]="toast.severity === 'warning'"
+    role="status"
+    (mouseenter)="pause(toast.id, toast.severity)"
+    (mouseleave)="resume(toast.id, toast.severity)"
+    (focusin)="pause(toast.id, toast.severity)"
+    (focusout)="resume(toast.id, toast.severity)"
+  >
+    <span class="toast-host__message">{{ toast.message }}</span>
+    <button
+      type="button"
+      class="toast-host__dismiss"
+      (click)="dismiss(toast.id)"
+      aria-label="Dismiss"
+    >
+      <app-material-symbol-icon name="close" aria-hidden="true" />
+    </button>
+  </div>
+}
