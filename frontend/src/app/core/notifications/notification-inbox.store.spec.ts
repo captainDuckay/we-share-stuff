@@ -200,6 +200,103 @@ describe('NotificationInboxStore', () => {
     expect(navigate).toHaveBeenCalledWith(['/sharing-groups', 'g1']);
   });
 
+  it('markSubjectsRead correlates kind and subject without requiring center open', async () => {
+    const api = createFakeApi();
+    api.list.mockResolvedValueOnce({
+      notifications: [
+        notification({
+          id: 'inv-n1',
+          kind: 'invitation',
+          subjectId: 'inv-1',
+          attention: 'unread',
+        }),
+        notification({
+          id: 'inv-n2',
+          kind: 'invitation',
+          subjectId: 'inv-2',
+          attention: 'read',
+        }),
+        notification({
+          id: 'res-n1',
+          kind: 'reservation_request',
+          subjectId: 'inv-1',
+          attention: 'unread',
+        }),
+      ],
+      unreadCount: 2,
+      limit: 50,
+      offset: 0,
+      total: 3,
+    });
+    const { store } = createStore(api);
+
+    await store.markSubjectsRead('invitation', ['inv-1', 'inv-2', 'missing']);
+
+    expect(api.list).toHaveBeenCalled();
+    expect(api.markRead).toHaveBeenCalledTimes(1);
+    expect(api.markRead).toHaveBeenCalledWith('inv-n1');
+    expect(store.centerOpen()).toBe(false);
+  });
+
+  it('markSubjectsRead stays silent when list fails', async () => {
+    const api = createFakeApi();
+    api.list.mockRejectedValueOnce(new Error('offline'));
+    const { store } = createStore(api);
+
+    await expect(store.markSubjectsRead('invitation', ['inv-1'])).resolves.toBeUndefined();
+    expect(api.markRead).not.toHaveBeenCalled();
+  });
+
+  it('markDeepLinkRead marks unread rows matching deep_link fields', async () => {
+    const api = createFakeApi();
+    const correlated: NotificationsEnvelope = {
+      notifications: [
+        notification({
+          id: 'home-n1',
+          kind: 'invitation',
+          subjectId: 'inv-cancelled',
+          subjectStatus: 'cancelled',
+          attention: 'unread',
+          deepLink: { surface: 'home' },
+        }),
+        notification({
+          id: 'group-n1',
+          kind: 'invitation',
+          subjectId: 'inv-accepted',
+          subjectStatus: 'accepted',
+          attention: 'unread',
+          deepLink: { surface: 'sharing_group', sharingGroupId: 'g1' },
+        }),
+        notification({
+          id: 'group-n2',
+          kind: 'invitation',
+          subjectId: 'inv-other',
+          subjectStatus: 'accepted',
+          attention: 'unread',
+          deepLink: { surface: 'sharing_group', sharingGroupId: 'g2' },
+        }),
+      ],
+      unreadCount: 3,
+      limit: 50,
+      offset: 0,
+      total: 3,
+    };
+    api.list.mockResolvedValue(correlated);
+    const { store } = createStore(api);
+
+    await store.markDeepLinkRead({ surface: 'home' });
+    expect(api.markRead).toHaveBeenCalledTimes(1);
+    expect(api.markRead).toHaveBeenCalledWith('home-n1');
+
+    api.markRead.mockClear();
+    await store.markDeepLinkRead({
+      surface: 'sharing_group',
+      sharingGroupId: 'g1',
+    });
+    expect(api.markRead).toHaveBeenCalledTimes(1);
+    expect(api.markRead).toHaveBeenCalledWith('group-n1');
+  });
+
   it('refresh failures stay silent and leave prior state', async () => {
     const api = createFakeApi();
     api.unreadCount.mockRejectedValueOnce(new Error('offline'));
