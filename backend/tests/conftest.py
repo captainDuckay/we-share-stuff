@@ -1,9 +1,14 @@
-from collections.abc import AsyncGenerator
+import asyncio
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.config import Settings, get_settings
 from app.database import get_database_session
@@ -32,11 +37,11 @@ def client(tmp_path: Path) -> TestClient:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
 
-    import asyncio
-
     asyncio.run(prepare_database())
     app.dependency_overrides[get_database_session] = override_session
     app.dependency_overrides[get_settings] = lambda: settings
+    app.state.session_factory = session_factory
+    app.state.engine = engine
     with TestClient(app) as test_client:
         yield test_client
     asyncio.run(engine.dispose())
@@ -49,3 +54,21 @@ def csrf_headers(client: TestClient) -> dict[str, str]:
     token = client.cookies.get("XSRF-TOKEN")
     assert token
     return {"Origin": "http://localhost:4200", "X-XSRF-TOKEN": token}
+
+
+@pytest.fixture
+def seed_models(client: TestClient) -> Callable[..., None]:
+    """Insert SQLAlchemy model instances via the test app's session factory."""
+
+    session_factory: async_sessionmaker[AsyncSession] = client.app.state.session_factory
+
+    def seed(*models: object) -> None:
+        async def _run() -> None:
+            async with session_factory() as session:
+                for model in models:
+                    session.add(model)
+                await session.commit()
+
+        asyncio.run(_run())
+
+    return seed

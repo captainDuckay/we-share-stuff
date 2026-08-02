@@ -1,0 +1,45 @@
+@if (inbox.centerOpen()) {
+  <div class="nc-scrim" (click)="inbox.closeCenter()" aria-hidden="true"></div>
+  <aside
+    class="nc-drawer"
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="nc-drawer-title"
+  >
+    <header class="nc-drawer__header">
+      <h2 id="nc-drawer-title">Notifications</h2>
+      <button
+        type="button"
+        class="nc-icon-btn"
+        (click)="inbox.closeCenter()"
+        aria-label="Close Notification Center"
+      >
+        <app-material-symbol-icon name="close" aria-hidden="true" />
+      </button>
+    </header>
+
+    @if (inbox.list().length === 0) {
+      <div class="nc-empty">
+        <p>You’re all caught up</p>
+        <p class="nc-muted">Invitations and reservation activity will show up here.</p>
+      </div>
+    } @else {
+      <ul class="nc-list">
+        @for (n of inbox.list(); track n.id) {
+          <li [class.nc-item--unread]="n.attention === 'unread'">
+            <button type="button" class="nc-item" (click)="onOpenItem(n)">
+              <span class="nc-dot" aria-hidden="true"></span>
+              <span class="nc-item__body">
+                <span class="nc-item__summary">{{ n.summary }}</span>
+                <span class="nc-item__meta">
+                  <span class="nc-chip">{{ kindLabel(n.kind) }}</span>
+                  <span>{{ n.subjectStatus }}</span>
+                </span>
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </aside>
+}

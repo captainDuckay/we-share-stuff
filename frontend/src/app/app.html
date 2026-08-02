@@ -14,6 +14,18 @@
         <a routerLink="/sharing-groups">Sharing groups</a>
       </nav>
       <button
+        type="button"
+        class="app__inbox-trigger"
+        [attr.aria-expanded]="inbox.centerOpen()"
+        [attr.aria-label]="inboxAriaLabel()"
+        (click)="inbox.toggleCenter()"
+      >
+        <app-material-symbol-icon name="inbox" aria-hidden="true" />
+        @if (inbox.badgeLabel(); as label) {
+          <span class="app__inbox-badge" aria-hidden="true">{{ label }}</span>
+        }
+      </button>
+      <button
         app-user-avatar
         class="app__account-trigger"
         type="button"
@@ -36,6 +48,9 @@
       </div>
     }
   </header>
+  @if (session.status() === 'authenticated') {
+    <app-notification-center />
+  }
   @if (session.status() === 'checking') {
     <p role="status">Checking your session…</p>
   } @else {
