@@ -1,13 +1,13 @@
 import { Component, computed, HostListener, inject } from '@angular/core';
 import { Notification } from '../../core/api/model';
-import { deepLinkCommands } from '../../core/notifications/functions';
+import { resolveDeepLink } from '../../core/notifications/functions';
 import { NotificationInboxStore } from '../../core/notifications/notification-inbox.store';
+import { NotificationRouteTarget } from '../../core/notifications/types';
 import { MaterialSymbolIconComponent } from '../../ui/material-symbol-icon/material-symbol-icon.component';
 import { NotificationCenterItem } from './notification-center-item/notification-center-item';
 
-export type LinkableNotification = {
+type LinkableNotification = NotificationRouteTarget & {
   readonly notification: Notification;
-  readonly commands: readonly string[];
 };
 
 @Component({
@@ -22,8 +22,15 @@ export class NotificationCenter {
   /** Rows with a resolvable deep link; unmapped surfaces are omitted. */
   readonly linkableItems = computed((): readonly LinkableNotification[] =>
     this.inbox.list().flatMap((notification) => {
-      const commands = deepLinkCommands(notification.deepLink);
-      return commands ? [{ notification, commands }] : [];
+      const target = resolveDeepLink(notification.deepLink);
+      if (!target) return [];
+      return [
+        {
+          notification,
+          commands: target.commands,
+          queryParams: target.queryParams,
+        },
+      ];
     }),
   );
 

@@ -39,6 +39,7 @@
               app-notification-center-item
               [notification]="item.notification"
               [routerLink]="item.commands"
+              [queryParams]="item.queryParams ?? null"
             ></a>
           </li>
         }

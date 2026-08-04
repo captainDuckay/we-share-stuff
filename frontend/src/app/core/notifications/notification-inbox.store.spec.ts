@@ -182,7 +182,19 @@ describe('NotificationInboxStore', () => {
     await expect(store.markRead('n1')).resolves.toBeUndefined();
   });
 
-  it('openNotification navigates deep link and marks read', async () => {
+  it('activateNotification closes the Center without marking Read', async () => {
+    const api = createFakeApi();
+    const { store } = createStore(api);
+    store.openCenter();
+    await vi.waitFor(() => expect(store.centerOpen()).toBe(true));
+
+    store.activateNotification();
+
+    expect(api.markRead).not.toHaveBeenCalled();
+    expect(store.centerOpen()).toBe(false);
+  });
+
+  it('openNotification navigates deep link without marking Read', async () => {
     const api = createFakeApi();
     const { store } = createStore(api);
     const router = TestBed.inject(Router);
@@ -195,9 +207,34 @@ describe('NotificationInboxStore', () => {
 
     await store.openNotification(row);
 
-    expect(api.markRead).toHaveBeenCalledWith('n2');
+    expect(api.markRead).not.toHaveBeenCalled();
     expect(store.centerOpen()).toBe(false);
-    expect(navigate).toHaveBeenCalledWith(['/sharing-groups', 'g1']);
+    expect(navigate).toHaveBeenCalledWith(['/sharing-groups', 'g1'], {
+      queryParams: undefined,
+    });
+  });
+
+  it('openNotification passes query params from deep link resolution', async () => {
+    const api = createFakeApi();
+    const { store } = createStore(api);
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const row = notification({
+      id: 'n-owner',
+      attention: 'unread',
+      deepLink: {
+        surface: 'my_stuff',
+        tab: 'approvals',
+        reservationId: 'r1',
+      },
+    });
+
+    await store.openNotification(row);
+
+    expect(api.markRead).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(['/my-stuff'], {
+      queryParams: { tab: 'approvals' },
+    });
   });
 
   it('markSubjectsRead correlates kind and subject without requiring center open', async () => {

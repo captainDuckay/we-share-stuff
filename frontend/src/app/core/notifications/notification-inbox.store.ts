@@ -10,7 +10,7 @@ import {
   NotificationKind,
 } from '../api/model';
 import { SessionStore } from '../session/session.store';
-import { deepLinkCommands, notificationBadgeLabel } from './functions';
+import { notificationBadgeLabel, resolveDeepLink } from './functions';
 
 const LIST_PAGE_LIMIT = 20;
 /** Page size when correlating kind + subject for destination mark-read. */
@@ -146,22 +146,25 @@ export class NotificationInboxStore {
   };
 
   /**
-   * Mark the row Read (if Unread) and close the Center.
+   * Close the Center after a row is chosen for navigation.
+   * Does not mark Read — destination surfaces own the attention lifecycle.
    * Navigation is owned by routerLink on the Notification Center row.
    */
-  activateNotification = (notification: Notification): void => {
-    if (notification.attention === 'unread') {
-      void this.markRead(notification.id);
-    }
+  activateNotification = (): void => {
     this.closeCenter();
   };
 
-  /** Programmatic open: activate + navigate via deep_link (for tests / non-link callers). */
+  /**
+   * Programmatic open: close Center chrome and navigate via deep_link
+   * without marking Read (for tests / non-link callers).
+   */
   openNotification = async (notification: Notification): Promise<void> => {
-    this.activateNotification(notification);
-    const commands = deepLinkCommands(notification.deepLink);
-    if (commands) {
-      await this.#router.navigate([...commands]);
+    this.activateNotification();
+    const target = resolveDeepLink(notification.deepLink);
+    if (target) {
+      await this.#router.navigate([...target.commands], {
+        queryParams: target.queryParams,
+      });
     }
   };
 

@@ -1,4 +1,5 @@
 import { NotificationDeepLink, NotificationKind } from '../api/model';
+import { NotificationRouteTarget } from './types';
 
 const UNREAD_BADGE_DISPLAY_CAP = 9;
 
@@ -19,19 +20,32 @@ export const notificationKindLabel = (kind: NotificationKind): string => {
   }
 };
 
-/** Route commands for a Notification deep link; null when surface is unknown. */
-export const deepLinkCommands = (deepLink: NotificationDeepLink): readonly string[] | null => {
+/**
+ * Route commands and optional query params for a Notification deep link.
+ * Returns null when the surface is unknown so callers can omit the link.
+ */
+export const resolveDeepLink = (
+  deepLink: NotificationDeepLink,
+): NotificationRouteTarget | null => {
   switch (deepLink.surface) {
     case 'home':
-      return ['/home'];
+      return { commands: ['/home'] };
     case 'sharing_group': {
       const groupId = deepLink.sharingGroupId;
       return typeof groupId === 'string' && groupId
-        ? ['/sharing-groups', groupId]
-        : ['/sharing-groups'];
+        ? { commands: ['/sharing-groups', groupId] }
+        : { commands: ['/sharing-groups'] };
     }
     case 'reservations':
-      return ['/reservations'];
+      return { commands: ['/reservations'] };
+    case 'my_stuff': {
+      const tab = deepLink.tab;
+      const queryParams =
+        typeof tab === 'string' && tab.length > 0 ? { tab } : undefined;
+      return queryParams
+        ? { commands: ['/my-stuff'], queryParams }
+        : { commands: ['/my-stuff'] };
+    }
     default:
       return null;
   }

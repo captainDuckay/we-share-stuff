@@ -423,6 +423,8 @@ export interface NotificationDeepLink {
   readonly surface: string;
   readonly sharingGroupId?: string;
   readonly reservationId?: string;
+  /** Optional URL tab for surfaces that expose addressable tabs (e.g. my_stuff). */
+  readonly tab?: string;
   readonly [key: string]: unknown;
 }
 
