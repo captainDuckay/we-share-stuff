@@ -25,7 +25,10 @@ from app.models import (
     SharingGroupMember,
     User,
 )
-from app.notification_emission import emit_reservation_request_notifications
+from app.notification_emission import (
+    emit_reservation_change_proposal_notifications,
+    emit_reservation_request_notifications,
+)
 from app.problems import problem
 from app.schemas import (
     ReservationChangeProposalEnvelope,
@@ -145,8 +148,42 @@ async def owner_reservation(
     return reservation
 
 
+async def emit_for_change_proposal_mutation(
+    db: DatabaseSession,
+    *,
+    proposal: ReservationChangeProposal,
+    actor_user_id: UUID | None,
+) -> None:
+    reservation = await db.get(Reservation, proposal.reservation_id)
+    if reservation is None:
+        raise problem(
+            404,
+            "change_proposal_not_found",
+            "Reservation Change Proposal was not found",
+        )
+    item = await db.get(Item, reservation.item_id)
+    if item is None:
+        raise problem(404, "reservation_not_found", "Reservation was not found")
+    owner = await db.get(User, item.owner_id)
+    requester = await db.get(User, reservation.requester_id)
+    if owner is None or requester is None:
+        raise problem(404, "reservation_not_found", "Reservation was not found")
+    await emit_reservation_change_proposal_notifications(
+        db,
+        proposal=proposal,
+        reservation=reservation,
+        item=item,
+        owner=owner,
+        requester=requester,
+        actor_user_id=actor_user_id,
+    )
+
+
 async def void_pending_change_proposals(
-    db: DatabaseSession, reservation_id: UUID
+    db: DatabaseSession,
+    reservation_id: UUID,
+    *,
+    actor_user_id: UUID | None = None,
 ) -> None:
     proposals = await db.scalars(
         select(ReservationChangeProposal).where(
@@ -157,6 +194,9 @@ async def void_pending_change_proposals(
     for proposal in proposals:
         proposal.status = "void"
         proposal.decided_at = now_utc()
+        await emit_for_change_proposal_mutation(
+            db, proposal=proposal, actor_user_id=actor_user_id
+        )
 
 
 async def pending_change_proposal_exists(
@@ -407,7 +447,9 @@ async def decline_reservation(
         raise problem(409, "reservation_not_pending", "Reservation is not pending")
     reservation.status = "declined"
     reservation.decided_at = now_utc()
-    await void_pending_change_proposals(db, reservation.id)
+    await void_pending_change_proposals(
+        db, reservation.id, actor_user_id=current.user.id
+    )
     await emit_for_reservation_mutation(
         db, reservation=reservation, actor_user_id=current.user.id
     )
@@ -433,7 +475,9 @@ async def withdraw_reservation(
         raise problem(409, "reservation_not_pending", "Reservation is not pending")
     reservation.status = "withdrawn"
     reservation.decided_at = now_utc()
-    await void_pending_change_proposals(db, reservation.id)
+    await void_pending_change_proposals(
+        db, reservation.id, actor_user_id=current.user.id
+    )
     await emit_for_reservation_mutation(
         db, reservation=reservation, actor_user_id=current.user.id
     )
@@ -457,7 +501,9 @@ async def cancel_reservation(
         raise problem(409, "reservation_not_accepted", "Reservation is not accepted")
     reservation.status = "cancelled"
     reservation.decided_at = now_utc()
-    await void_pending_change_proposals(db, reservation.id)
+    await void_pending_change_proposals(
+        db, reservation.id, actor_user_id=current.user.id
+    )
     await emit_for_reservation_mutation(
         db, reservation=reservation, actor_user_id=current.user.id
     )
@@ -548,6 +594,10 @@ async def create_change_proposal(
         timezone=reservation.timezone,
     )
     db.add(proposal)
+    await db.flush()
+    await emit_for_change_proposal_mutation(
+        db, proposal=proposal, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(proposal)
     return ReservationChangeProposalEnvelope(
@@ -597,6 +647,9 @@ async def approve_change_proposal(
     if reservation.status not in {"pending", "accepted"}:
         proposal.status = "void"
         proposal.decided_at = now_utc()
+        await emit_for_change_proposal_mutation(
+            db, proposal=proposal, actor_user_id=current.user.id
+        )
         await db.commit()
         raise problem(
             409, "reservation_not_changeable", "Reservation cannot be changed"
@@ -618,6 +671,9 @@ async def approve_change_proposal(
     reservation.timezone = proposal.timezone
     proposal.status = "approved"
     proposal.decided_at = now_utc()
+    await emit_for_change_proposal_mutation(
+        db, proposal=proposal, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(proposal)
     return ReservationChangeProposalEnvelope(
@@ -649,6 +705,9 @@ async def withdraw_change_proposal(
         )
     proposal.status = "void"
     proposal.decided_at = now_utc()
+    await emit_for_change_proposal_mutation(
+        db, proposal=proposal, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(proposal)
     return ReservationChangeProposalEnvelope(
@@ -680,6 +739,9 @@ async def reject_change_proposal(
         )
     proposal.status = "rejected"
     proposal.decided_at = now_utc()
+    await emit_for_change_proposal_mutation(
+        db, proposal=proposal, actor_user_id=current.user.id
+    )
     await db.commit()
     await db.refresh(proposal)
     return ReservationChangeProposalEnvelope(

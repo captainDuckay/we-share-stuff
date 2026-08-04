@@ -75,7 +75,6 @@ export class SharingPageComponent {
   readonly error = signal('');
   readonly formError = signal('');
   readonly busyKey = signal<string | null>(null);
-  readonly dismissedAttentionIds = signal<ReadonlySet<string>>(new Set());
   readonly announcement = signal('');
   readonly groupForm = new FormGroup({
     name: new FormControl('', {
@@ -179,25 +178,6 @@ export class SharingPageComponent {
 
   canActOnProposal(proposal: ReservationChangeProposal): boolean {
     return proposal.status === 'pending' && proposal.proposedBy.id !== this.session.user()?.id;
-  }
-
-  allChangeProposals(): readonly ReservationChangeProposal[] {
-    return Object.values(this.changeProposalsByReservation()).flat();
-  }
-
-  attentionChangeProposals(): readonly ReservationChangeProposal[] {
-    return this.allChangeProposals().filter(
-      (proposal) =>
-        proposal.status === 'pending' && !this.isAttentionDismissed(`proposal:${proposal.id}`),
-    );
-  }
-
-  isAttentionDismissed(id: string): boolean {
-    return this.dismissedAttentionIds().has(id);
-  }
-
-  dismissAttention(id: string): void {
-    this.dismissedAttentionIds.update((dismissed) => new Set([...dismissed, id]));
   }
 
   canRemoveMember(member: SharingGroupMember): boolean {
@@ -366,9 +346,13 @@ export class SharingPageComponent {
     try {
       await this.#api.createChangeProposal(reservation.id, input);
       this.announcement.set('Reservation Change Proposal created.');
+      this.#toast.success('Reservation Change Proposal created.');
+      void this.#inbox.refresh();
       await this.#refreshReservationsAndSharedItems();
     } catch (error) {
-      this.formError.set(friendlyApiError(error, 'We could not propose those Reservation dates.'));
+      const message = friendlyApiError(error, 'We could not propose those Reservation dates.');
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }
@@ -381,19 +365,24 @@ export class SharingPageComponent {
     if (this.busyKey()) return;
     this.busyKey.set(`${decision}-change-proposal:${proposal.id}`);
     this.formError.set('');
+    const successMessage =
+      decision === 'approve'
+        ? 'Reservation Change Proposal approved.'
+        : 'Reservation Change Proposal rejected.';
     try {
       if (decision === 'approve') await this.#api.approveChangeProposal(proposal.id);
       else await this.#api.rejectChangeProposal(proposal.id);
-      this.announcement.set(
-        decision === 'approve'
-          ? 'Reservation Change Proposal approved.'
-          : 'Reservation Change Proposal rejected.',
-      );
+      this.announcement.set(successMessage);
+      this.#toast.success(successMessage);
+      void this.#inbox.refresh();
       await this.#refreshReservationsAndSharedItems();
     } catch (error) {
-      this.formError.set(
-        friendlyApiError(error, 'We could not update that Reservation Change Proposal.'),
+      const message = friendlyApiError(
+        error,
+        'We could not update that Reservation Change Proposal.',
       );
+      this.formError.set(message);
+      this.#toast.error(message);
     } finally {
       this.busyKey.set(null);
     }

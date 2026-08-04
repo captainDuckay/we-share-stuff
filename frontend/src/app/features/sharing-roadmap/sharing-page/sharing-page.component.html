@@ -17,45 +17,6 @@
     <p class="sharing-page__error" role="alert">{{ formError() }}</p>
   }
 
-  @if (attentionChangeProposals().length > 0) {
-    <section class="sharing-page__panel" aria-labelledby="home-attention-title">
-      <h2 id="home-attention-title">Attention</h2>
-      <ul class="sharing-page__plain-list sharing-page__compact-list">
-        @for (proposal of attentionChangeProposals(); track proposal.id) {
-          <li class="sharing-page__list-item">
-            <strong>Reservation Change Proposal</strong>
-            <span>{{ proposal.reservation.item.name }} · {{ proposalRange(proposal) }}</span>
-            @if (canActOnProposal(proposal)) {
-              <button
-                class="sharing-page__button"
-                type="button"
-                (click)="approveChangeProposal(proposal)"
-              >
-                Approve
-              </button>
-              <button
-                class="sharing-page__button"
-                type="button"
-                (click)="rejectChangeProposal(proposal)"
-              >
-                Reject
-              </button>
-            } @else {
-              <span class="sharing-page__meta">Waiting for the other User.</span>
-              <button
-                class="sharing-page__button"
-                type="button"
-                (click)="dismissAttention('proposal:' + proposal.id)"
-              >
-                Dismiss
-              </button>
-            }
-          </li>
-        }
-      </ul>
-    </section>
-  }
-
   <section class="sharing-page__panel" aria-labelledby="browse-shared-items-title">
     <h2 id="browse-shared-items-title">
       <a routerLink="/browse-shared-items">Browse shared items</a>
