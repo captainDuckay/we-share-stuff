@@ -188,7 +188,16 @@ def _iso_utc(value: datetime) -> str:
     return as_utc(value).isoformat().replace("+00:00", "Z")
 
 
-def reservation_request_deep_link(*, reservation_id: UUID) -> dict:
+def reservation_request_deep_link(
+    *, reservation_id: UUID, recipient_is_owner: bool
+) -> dict:
+    """Deep link by recipient role on the Reservation (owner vs requester)."""
+    if recipient_is_owner:
+        return {
+            "surface": "my_stuff",
+            "tab": "approvals",
+            "reservationId": str(reservation_id),
+        }
     return {
         "surface": "reservations",
         "reservationId": str(reservation_id),
@@ -266,7 +275,6 @@ async def emit_reservation_request_notifications(
     - cancel (accepted) → update if exists; create only for non-cancelling party
     """
     status = reservation.status
-    deep_link = reservation_request_deep_link(reservation_id=reservation.id)
     emitted: list[Notification] = []
 
     async def emit_for(
@@ -286,6 +294,10 @@ async def emit_reservation_request_notifications(
             reservation=reservation,
             item=item,
             other_party=other_party,
+        )
+        deep_link = reservation_request_deep_link(
+            reservation_id=reservation.id,
+            recipient_is_owner=recipient_is_owner,
         )
         attention = _attention_for_recipient(
             actor_user_id=actor_user_id, recipient_user_id=recipient.id
@@ -362,7 +374,16 @@ async def emit_reservation_request_notifications(
     return emitted
 
 
-def reservation_change_proposal_deep_link(*, reservation_id: UUID) -> dict:
+def reservation_change_proposal_deep_link(
+    *, reservation_id: UUID, recipient_is_owner: bool
+) -> dict:
+    """Deep link by recipient role on the Reservation (not proposer role)."""
+    if recipient_is_owner:
+        return {
+            "surface": "my_stuff",
+            "tab": "approvals",
+            "reservationId": str(reservation_id),
+        }
     return {
         "surface": "reservations",
         "reservationId": str(reservation_id),
@@ -435,9 +456,6 @@ async def emit_reservation_change_proposal_notifications(
         requester if proposal.proposed_by_id == requester.id else owner
     )
     counterparty = owner if proposer.id == requester.id else requester
-    deep_link = reservation_change_proposal_deep_link(
-        reservation_id=reservation.id
-    )
     payload = reservation_change_proposal_payload(
         proposal=proposal,
         reservation=reservation,
@@ -457,6 +475,10 @@ async def emit_reservation_change_proposal_notifications(
             item_name=item.name,
             proposed_by_display_name=proposer.display_name,
             recipient_is_proposer=recipient_is_proposer,
+        )
+        deep_link = reservation_change_proposal_deep_link(
+            reservation_id=reservation.id,
+            recipient_is_owner=recipient.id == owner.id,
         )
         attention = _attention_for_recipient(
             actor_user_id=actor_user_id, recipient_user_id=recipient.id

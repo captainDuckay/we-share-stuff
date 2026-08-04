@@ -22,20 +22,39 @@ describe('resolveDeepLink', () => {
     });
   });
 
-  it('maps reservations to /reservations without query params', () => {
+  it('maps reservations with reservationId to query param for scroll targeting', () => {
     expect(
       resolveDeepLink({ surface: 'reservations', reservationId: 'r1' }),
     ).toEqual({
       commands: ['/reservations'],
+      queryParams: { reservationId: 'r1' },
     });
   });
 
-  it('maps my_stuff with tab to /my-stuff and tab query param', () => {
+  it('maps reservations without reservationId to path only', () => {
+    expect(resolveDeepLink({ surface: 'reservations' })).toEqual({
+      commands: ['/reservations'],
+    });
+  });
+
+  it('maps my_stuff with tab and reservationId for Approvals scroll targeting', () => {
     expect(
       resolveDeepLink({
         surface: 'my_stuff',
         tab: 'approvals',
         reservationId: 'r1',
+      }),
+    ).toEqual({
+      commands: ['/my-stuff'],
+      queryParams: { tab: 'approvals', reservationId: 'r1' },
+    });
+  });
+
+  it('maps my_stuff with tab only', () => {
+    expect(
+      resolveDeepLink({
+        surface: 'my_stuff',
+        tab: 'approvals',
       }),
     ).toEqual({
       commands: ['/my-stuff'],

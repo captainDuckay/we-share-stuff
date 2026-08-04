@@ -234,7 +234,7 @@ describe('NotificationInboxStore', () => {
 
     expect(api.markRead).not.toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/my-stuff'], {
-      queryParams: { tab: 'approvals' },
+      queryParams: { tab: 'approvals', reservationId: 'r1' },
     });
   });
 
@@ -333,6 +333,59 @@ describe('NotificationInboxStore', () => {
     });
     expect(api.markRead).toHaveBeenCalledTimes(1);
     expect(api.markRead).toHaveBeenCalledWith('group-n1');
+  });
+
+  it('markDeepLinkRead correlates Unread by reservationId across kinds', async () => {
+    const api = createFakeApi();
+    api.list.mockResolvedValue({
+      notifications: [
+        notification({
+          id: 'rr-owner',
+          kind: 'reservation_request',
+          subjectId: 'r1',
+          attention: 'unread',
+          deepLink: {
+            surface: 'my_stuff',
+            tab: 'approvals',
+            reservationId: 'r1',
+          },
+        }),
+        notification({
+          id: 'rcp-owner',
+          kind: 'reservation_change_proposal',
+          subjectId: 'p1',
+          attention: 'unread',
+          deepLink: {
+            surface: 'my_stuff',
+            tab: 'approvals',
+            reservationId: 'r1',
+          },
+        }),
+        notification({
+          id: 'rr-other',
+          kind: 'reservation_request',
+          subjectId: 'r2',
+          attention: 'unread',
+          deepLink: {
+            surface: 'my_stuff',
+            tab: 'approvals',
+            reservationId: 'r2',
+          },
+        }),
+      ],
+      unreadCount: 3,
+      limit: 50,
+      offset: 0,
+      total: 3,
+    });
+    const { store } = createStore(api);
+
+    await store.markDeepLinkRead({ reservationId: 'r1' });
+
+    expect(api.markRead).toHaveBeenCalledTimes(2);
+    expect(api.markRead).toHaveBeenCalledWith('rr-owner');
+    expect(api.markRead).toHaveBeenCalledWith('rcp-owner');
+    expect(api.markRead).not.toHaveBeenCalledWith('rr-other');
   });
 
   it('refresh failures stay silent and leave prior state', async () => {

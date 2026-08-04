@@ -624,7 +624,8 @@ def test_reservation_create_notifies_owner_only_not_requester(
     assert row["attention"] == "unread"
     assert "Tent" in row["summary"]
     assert "Bob" in row["summary"]
-    assert row["deepLink"]["surface"] == "reservations"
+    assert row["deepLink"]["surface"] == "my_stuff"
+    assert row["deepLink"]["tab"] == "approvals"
     assert row["deepLink"]["reservationId"] == reservation["id"]
     assert row["payload"]["itemName"] == "Tent"
     assert row["payload"]["otherPartyDisplayName"] == "Bob"
@@ -691,6 +692,11 @@ def test_reservation_accept_updates_owner_read_and_creates_requester_unread(
     assert requester_rr["attention"] == "unread"
     assert "Ada" in requester_rr["summary"]
     assert requester_rr["deepLink"]["surface"] == "reservations"
+    assert requester_rr["deepLink"]["reservationId"] == reservation_id
+    assert "tab" not in requester_rr["deepLink"]
+    assert owner_rr["deepLink"]["surface"] == "my_stuff"
+    assert owner_rr["deepLink"]["tab"] == "approvals"
+    assert owner_rr["deepLink"]["reservationId"] == reservation_id
 
 
 def test_reservation_decline_updates_owner_and_creates_requester(
@@ -1045,7 +1051,9 @@ def test_change_proposal_create_notifies_counterparty_only(
     assert row["attention"] == "unread"
     assert "Tent" in row["summary"]
     assert "Bob" in row["summary"]
-    assert row["deepLink"]["surface"] == "reservations"
+    # Owner is counterparty → Approvals surface (role on Reservation, not proposer).
+    assert row["deepLink"]["surface"] == "my_stuff"
+    assert row["deepLink"]["tab"] == "approvals"
     assert row["deepLink"]["reservationId"] == reservation["id"]
     assert row["payload"]["proposalId"] == proposal["id"]
     assert row["payload"]["reservationId"] == reservation["id"]
@@ -1101,6 +1109,13 @@ def test_change_proposal_approve_updates_counterparty_read_creates_proposer_unre
     assert requester_rcp["subjectStatus"] == "approved"
     assert requester_rcp["attention"] == "unread"
     assert "Tent" in requester_rcp["summary"]
+    # Role on Reservation: owner → Approvals; requester → My reservations.
+    assert owner_rcp["deepLink"]["surface"] == "my_stuff"
+    assert owner_rcp["deepLink"]["tab"] == "approvals"
+    assert owner_rcp["deepLink"]["reservationId"] == reservation["id"]
+    assert requester_rcp["deepLink"]["surface"] == "reservations"
+    assert requester_rcp["deepLink"]["reservationId"] == reservation["id"]
+    assert "tab" not in requester_rcp["deepLink"]
 
 
 def test_change_proposal_reject_updates_counterparty_and_creates_proposer(
@@ -1163,6 +1178,10 @@ def test_change_proposal_owner_proposes_notifies_requester(
     assert rcp_rows[0]["attention"] == "unread"
     assert "Ada" in rcp_rows[0]["summary"]
     assert rcp_rows[0]["payload"]["proposedByDisplayName"] == "Ada"
+    # Requester is recipient → My reservations (not Approvals).
+    assert rcp_rows[0]["deepLink"]["surface"] == "reservations"
+    assert rcp_rows[0]["deepLink"]["reservationId"] == reservation["id"]
+    assert "tab" not in rcp_rows[0]["deepLink"]
 
     owner_headers = use_session(client, owner)
     owner_inbox = client.get("/api/notifications", headers=owner_headers).json()

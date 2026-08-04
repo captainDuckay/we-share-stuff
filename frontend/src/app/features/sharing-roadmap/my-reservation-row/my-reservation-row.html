@@ -1,0 +1,98 @@
+<div role="cell">
+  <button type="button" class="my-res__item-btn" (click)="openDetail.emit(reservation())">
+    <strong>{{ reservation().item.name }}</strong>
+  </button>
+  <div class="my-res__muted">{{ locationName() }}</div>
+  @if (listPlacementPath(); as path) {
+    <div class="my-res__place">{{ path }}</div>
+  }
+</div>
+<div class="my-res__person" role="cell">
+  <app-user-avatar [displayName]="ownerName()" [photoUrl]="ownerPhotoUrl()" />
+  <span>{{ ownerName() }}</span>
+</div>
+<div role="cell">
+  <div>{{ rangeLabel() }}</div>
+  @if (ownerProposal(); as proposal) {
+    <div class="my-res__prop">
+      Proposed: {{ ownerProposalRangeLabel() }}
+      <span class="my-res__muted">(from owner)</span>
+    </div>
+  } @else if (myProposal(); as proposal) {
+    <div class="my-res__prop">
+      Proposed: {{ myProposalRangeLabel() }}
+      <span class="my-res__muted">(by you)</span>
+    </div>
+  }
+</div>
+<div role="cell">
+  <div [class.my-res__status--alert]="needsResponse()">{{ statusLabel() }}</div>
+  @if (myProposal() && !needsResponse()) {
+    <div class="my-res__muted my-res__waiting">Waiting on {{ ownerName() }}</div>
+  }
+  @if (showConflict()) {
+    <div class="my-res__warn">
+      Another Accepted Reservation already covers part of this window.
+    </div>
+  }
+</div>
+<div class="my-res__actions" role="cell">
+  @if (ownerProposal(); as proposal) {
+    <button
+      class="my-res__btn my-res__btn--primary"
+      type="button"
+      [disabled]="actionBusy()"
+      (click)="approveProposal.emit(proposal)"
+    >
+      Accept change
+    </button>
+    <button
+      class="my-res__btn"
+      type="button"
+      [disabled]="actionBusy()"
+      (click)="rejectProposal.emit(proposal)"
+    >
+      Reject
+    </button>
+  } @else if (myProposal(); as proposal) {
+    <button
+      class="my-res__btn"
+      type="button"
+      [disabled]="actionBusy()"
+      (click)="withdrawProposal.emit(proposal)"
+    >
+      Withdraw proposal
+    </button>
+    <button class="my-res__btn" type="button" (click)="openDetail.emit(reservation())">
+      Trip detail
+    </button>
+  } @else if (canWithdraw()) {
+    <button
+      class="my-res__btn"
+      type="button"
+      [disabled]="actionBusy()"
+      (click)="withdraw.emit(reservation())"
+    >
+      Withdraw
+    </button>
+    <button class="my-res__btn" type="button" (click)="openDetail.emit(reservation())">
+      Change dates…
+    </button>
+  } @else if (canCancel()) {
+    <button
+      class="my-res__btn"
+      type="button"
+      [disabled]="actionBusy()"
+      (click)="cancel.emit(reservation())"
+    >
+      Cancel
+    </button>
+    <button class="my-res__btn" type="button" (click)="openDetail.emit(reservation())">
+      Trip detail
+    </button>
+  } @else {
+    <button class="my-res__linkish" type="button" (click)="openDetail.emit(reservation())">
+      View
+    </button>
+  }
+</div>
