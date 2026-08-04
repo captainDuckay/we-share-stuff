@@ -1,6 +1,6 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { afterNextRender, Component, computed, effect, inject, Injector, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { InventoryApi } from '../../../core/api/inventory-api.service';
 import { Item, Reservation, ReservationChangeProposal } from '../../../core/api/model';
@@ -8,7 +8,7 @@ import { SharingApi } from '../../../core/api/sharing-api.service';
 import { NotificationInboxStore } from '../../../core/notifications/notification-inbox.store';
 import { ToastStore } from '../../../core/toast/toast.store';
 import { PageLayout } from '../../../layout/page-layout/page-layout';
-import { friendlyApiError, reservationCanProposeChange } from '../functions';
+import { friendlyApiError, parseMyStuffTab, reservationCanProposeChange, type MyStuffTab } from '../functions';
 import { ReservationCardComponent } from '../reservation-card/reservation-card.component';
 import { SharedItemCardComponent } from '../shared-item-card/shared-item-card.component';
 
@@ -24,7 +24,10 @@ export class MyStuffPageComponent {
   readonly #inbox = inject(NotificationInboxStore);
   readonly #toast = inject(ToastStore);
   readonly #route = inject(ActivatedRoute);
+  readonly #router = inject(Router);
+  readonly #injector = inject(Injector);
   #loadGeneration = 0;
+  #scrolledFocusId: string | null = null;
   readonly typicalLocationId = toSignal(
     this.#route.queryParamMap.pipe(map((params) => params.get('typicalLocationId') ?? '')),
     { initialValue: this.#route.snapshot.queryParamMap.get('typicalLocationId') ?? '' },
@@ -33,12 +36,22 @@ export class MyStuffPageComponent {
     this.#route.queryParamMap.pipe(map((params) => params.get('placementSlotId') ?? '')),
     { initialValue: this.#route.snapshot.queryParamMap.get('placementSlotId') ?? '' },
   );
+  readonly tab = toSignal(
+    this.#route.queryParamMap.pipe(map((params) => parseMyStuffTab(params.get('tab')))),
+    {
+      initialValue: parseMyStuffTab(this.#route.snapshot.queryParamMap.get('tab')),
+    },
+  );
+  readonly focusReservationId = toSignal(
+    this.#route.queryParamMap.pipe(map((params) => params.get('reservationId') ?? '')),
+    { initialValue: this.#route.snapshot.queryParamMap.get('reservationId') ?? '' },
+  );
   readonly items = signal<readonly Item[]>([]);
   readonly approvals = signal<readonly Reservation[]>([]);
   readonly proposals = signal<readonly ReservationChangeProposal[]>([]);
   readonly loading = signal(true);
   readonly error = signal('');
-  readonly tab = signal<'tools' | 'approvals'>('tools');
+
   constructor() {
     effect(() => {
       this.typicalLocationId();
@@ -46,6 +59,15 @@ export class MyStuffPageComponent {
       void this.load();
     });
   }
+
+  selectTab(next: MyStuffTab): void {
+    void this.#router.navigate([], {
+      relativeTo: this.#route,
+      queryParams: { tab: next === 'tools' ? null : next },
+      queryParamsHandling: 'merge',
+    });
+  }
+
   async load(): Promise<void> {
     const generation = ++this.#loadGeneration;
     this.loading.set(true);
@@ -68,23 +90,27 @@ export class MyStuffPageComponent {
       );
       if (generation !== this.#loadGeneration) return;
       this.proposals.set(lists.flatMap((list) => list.changeProposals));
-      // Destination open: owner Approvals surface correlates by reservation subject.
-      void this.#inbox.markSubjectsRead(
-        'reservation_request',
-        received.reservations.map((reservation) => reservation.id),
-      );
+      // Mark-read is intersection-driven on Approvals cards — not tools load batch.
+      this.#scrollFocusReservationIntoView(generation);
     } catch {
       if (generation === this.#loadGeneration) this.error.set('We could not load My stuff.');
     } finally {
       if (generation === this.#loadGeneration) this.loading.set(false);
     }
   }
+
+  onApprovalCardVisible(reservationId: string): void {
+    void this.#inbox.markDeepLinkRead({ reservationId });
+  }
+
   readonly activeProposals = computed(() =>
     this.proposals().filter((proposal) => proposal.status === 'pending'),
   );
+
   otherName(reservation: Reservation): string {
     return reservation.requester.displayName;
   }
+
   ownerCanAct(reservation: Reservation): boolean {
     return (
       reservation.status === 'pending' &&
@@ -93,6 +119,7 @@ export class MyStuffPageComponent {
       !this.pendingProposalByMe(reservation)
     );
   }
+
   pendingProposalFromOther(reservation: Reservation): ReservationChangeProposal | null {
     return (
       this.activeProposals().find(
@@ -102,6 +129,7 @@ export class MyStuffPageComponent {
       ) ?? null
     );
   }
+
   pendingProposalByMe(reservation: Reservation): ReservationChangeProposal | null {
     return (
       this.activeProposals().find(
@@ -111,9 +139,11 @@ export class MyStuffPageComponent {
       ) ?? null
     );
   }
+
   canCancelOrPropose(reservation: Reservation): boolean {
     return reservationCanProposeChange(reservation, this.activeProposals());
   }
+
   async accept(reservation: Reservation): Promise<void> {
     try {
       await this.#sharingApi.acceptReservation(reservation.id);
@@ -124,6 +154,7 @@ export class MyStuffPageComponent {
       this.#toast.error(friendlyApiError(error, 'We could not accept that Reservation.'));
     }
   }
+
   async decline(reservation: Reservation): Promise<void> {
     try {
       await this.#sharingApi.declineReservation(reservation.id);
@@ -134,6 +165,7 @@ export class MyStuffPageComponent {
       this.#toast.error(friendlyApiError(error, 'We could not decline that Reservation.'));
     }
   }
+
   async cancel(reservation: Reservation): Promise<void> {
     try {
       await this.#sharingApi.cancelReservation(reservation.id);
@@ -144,6 +176,7 @@ export class MyStuffPageComponent {
       this.#toast.error(friendlyApiError(error, 'We could not cancel that Reservation.'));
     }
   }
+
   async propose(reservation: Reservation, startLocal: string, endLocal: string): Promise<void> {
     if (!startLocal || !endLocal) return;
     try {
@@ -157,6 +190,7 @@ export class MyStuffPageComponent {
       );
     }
   }
+
   async approveProposal(proposal: ReservationChangeProposal): Promise<void> {
     try {
       await this.#sharingApi.approveChangeProposal(proposal.id);
@@ -169,6 +203,7 @@ export class MyStuffPageComponent {
       );
     }
   }
+
   async rejectProposal(proposal: ReservationChangeProposal): Promise<void> {
     try {
       await this.#sharingApi.rejectChangeProposal(proposal.id);
@@ -181,6 +216,7 @@ export class MyStuffPageComponent {
       );
     }
   }
+
   async withdrawProposal(proposal: ReservationChangeProposal): Promise<void> {
     try {
       await this.#sharingApi.withdrawChangeProposal(proposal.id);
@@ -192,5 +228,25 @@ export class MyStuffPageComponent {
         friendlyApiError(error, 'We could not withdraw that Reservation Change Proposal.'),
       );
     }
+  }
+
+  #scrollFocusReservationIntoView(generation: number): void {
+    const focusId = this.focusReservationId();
+    if (!focusId || this.tab() !== 'approvals') return;
+    if (this.#scrolledFocusId === focusId) return;
+    if (!this.approvals().some((reservation) => reservation.id === focusId)) return;
+    afterNextRender(
+      () => {
+        if (generation !== this.#loadGeneration) return;
+        const el = document.querySelector(
+          `app-reservation-card[data-reservation-id="${CSS.escape(focusId)}"]`,
+        );
+        if (el instanceof HTMLElement) {
+          el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          this.#scrolledFocusId = focusId;
+        }
+      },
+      { injector: this.#injector },
+    );
   }
 }

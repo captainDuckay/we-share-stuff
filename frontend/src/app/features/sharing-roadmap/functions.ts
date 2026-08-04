@@ -280,6 +280,28 @@ export const defaultReservationsTab = (
   return 'past';
 };
 
+/** Which My reservations tab hosts this Reservation row. */
+export const reservationsTabContaining = (
+  reservation: Reservation,
+  now = new Date(),
+): ReservationsTab => {
+  if (isUpcomingAcceptedReservation(reservation, now)) return 'upcoming';
+  if (reservation.status === 'pending') return 'pending';
+  return 'past';
+};
+
+/** Parse My reservations ?tab=; null when missing or unknown. */
+export const parseReservationsTab = (raw: string | null | undefined): ReservationsTab | null => {
+  if (raw === 'upcoming' || raw === 'pending' || raw === 'past') return raw;
+  return null;
+};
+
+export type MyStuffTab = 'tools' | 'approvals';
+
+/** Parse My stuff ?tab=; defaults to tools when missing or unknown. */
+export const parseMyStuffTab = (raw: string | null | undefined): MyStuffTab =>
+  raw === 'approvals' ? 'approvals' : 'tools';
+
 export const pendingProposalForReservation = (
   proposals: readonly ReservationChangeProposal[],
   reservationId: string,

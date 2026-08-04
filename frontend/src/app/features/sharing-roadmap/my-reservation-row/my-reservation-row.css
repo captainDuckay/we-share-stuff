@@ -1,0 +1,112 @@
+:host {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 1.3fr 1.2fr 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border);
+  font-size: 0.9rem;
+  align-items: center;
+}
+
+:host(.my-res__row--alert) {
+  background: color-mix(in oklch, var(--warning) 8%, var(--card));
+}
+
+.my-res__muted {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.my-res__item-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.my-res__item-btn:hover strong {
+  text-decoration: underline;
+}
+
+.my-res__place {
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--foreground);
+}
+
+.my-res__prop {
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+}
+
+.my-res__person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.my-res__status--alert {
+  font-weight: var(--font-weight-bold);
+}
+
+.my-res__waiting {
+  margin-top: var(--space-1);
+}
+
+.my-res__warn {
+  margin-top: var(--space-1);
+  font-size: 0.75rem;
+  color: var(--destructive-text);
+}
+
+.my-res__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.my-res__btn {
+  border: var(--border-width) solid var(--border);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.8rem;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.my-res__btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.my-res__btn--primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.my-res__linkish {
+  border: none;
+  background: none;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font: inherit;
+  padding: 0;
+}
+
+@media (max-width: 50rem) {
+  :host {
+    grid-template-columns: 1fr;
+  }
+}

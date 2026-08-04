@@ -24,7 +24,7 @@
       class="sharing-page__button sharing-page__tab-button"
       type="button"
       [class.sharing-page__active]="tab() === 'tools'"
-      (click)="tab.set('tools')"
+      (click)="selectTab('tools')"
     >
       My tools
     </button>
@@ -32,7 +32,7 @@
       class="sharing-page__button sharing-page__tab-button"
       type="button"
       [class.sharing-page__active]="tab() === 'approvals'"
-      (click)="tab.set('approvals')"
+      (click)="selectTab('approvals')"
     >
       Approvals
     </button>
@@ -56,6 +56,8 @@
       @for (reservation of approvals(); track reservation.id) {
         <li class="sharing-page__reservation-card">
           <app-reservation-card
+            [app-observe-visible]="true"
+            (cardVisible)="onApprovalCardVisible(reservation.id)"
             [reservation]="reservation"
             [personName]="otherName(reservation)"
             [personPhotoUrl]="reservation.requester.profilePhotoUrl"

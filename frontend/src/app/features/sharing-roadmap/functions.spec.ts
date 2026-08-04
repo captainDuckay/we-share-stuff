@@ -25,11 +25,14 @@ import {
   normalizeInvitationInput,
   normalizeReservationRequest,
   normalizeTypicalLocationInput,
+  parseMyStuffTab,
+  parseReservationsTab,
   pendingProposalForReservation,
   photoInputError,
   remainingMemberCount,
   reservationEndTimeError,
   reservationsNeedingBorrowerResponse,
+  reservationsTabContaining,
   reservationStartTimeError,
   shareReadinessLabel,
   sharingGroupPhotoInputError,
@@ -295,6 +298,46 @@ describe('Reservation display helpers', () => {
     expect(defaultReservationsTab(2, 1)).toBe('upcoming');
     expect(defaultReservationsTab(0, 3)).toBe('pending');
     expect(defaultReservationsTab(0, 0)).toBe('past');
+  });
+
+  it('derives the My reservations tab that contains a Reservation', () => {
+    const now = new Date('2026-07-22T12:00:00Z');
+    expect(
+      reservationsTabContaining(
+        sampleReservation({
+          status: 'accepted',
+          endAt: '2026-08-10T10:00:00Z',
+        }),
+        now,
+      ),
+    ).toBe('upcoming');
+    expect(reservationsTabContaining(sampleReservation({ status: 'pending' }), now)).toBe(
+      'pending',
+    );
+    expect(reservationsTabContaining(sampleReservation({ status: 'declined' }), now)).toBe(
+      'past',
+    );
+    expect(
+      reservationsTabContaining(
+        sampleReservation({
+          status: 'accepted',
+          endAt: '2026-07-01T10:00:00Z',
+        }),
+        now,
+      ),
+    ).toBe('past');
+  });
+
+  it('parses URL tab query values for My reservations and My stuff', () => {
+    expect(parseReservationsTab('upcoming')).toBe('upcoming');
+    expect(parseReservationsTab('pending')).toBe('pending');
+    expect(parseReservationsTab('past')).toBe('past');
+    expect(parseReservationsTab('nope')).toBeNull();
+    expect(parseReservationsTab(null)).toBeNull();
+    expect(parseMyStuffTab('approvals')).toBe('approvals');
+    expect(parseMyStuffTab('tools')).toBe('tools');
+    expect(parseMyStuffTab(null)).toBe('tools');
+    expect(parseMyStuffTab('nope')).toBe('tools');
   });
 
   it('shows list placement path only when revealed', () => {

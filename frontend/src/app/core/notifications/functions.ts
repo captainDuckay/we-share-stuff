@@ -36,13 +36,27 @@ export const resolveDeepLink = (
         ? { commands: ['/sharing-groups', groupId] }
         : { commands: ['/sharing-groups'] };
     }
-    case 'reservations':
-      return { commands: ['/reservations'] };
-    case 'my_stuff': {
-      const tab = deepLink.tab;
+    case 'reservations': {
+      const reservationId = deepLink.reservationId;
       const queryParams =
-        typeof tab === 'string' && tab.length > 0 ? { tab } : undefined;
+        typeof reservationId === 'string' && reservationId.length > 0
+          ? { reservationId }
+          : undefined;
       return queryParams
+        ? { commands: ['/reservations'], queryParams }
+        : { commands: ['/reservations'] };
+    }
+    case 'my_stuff': {
+      const queryParams: Record<string, string> = {};
+      const tab = deepLink.tab;
+      if (typeof tab === 'string' && tab.length > 0) {
+        queryParams['tab'] = tab;
+      }
+      const reservationId = deepLink.reservationId;
+      if (typeof reservationId === 'string' && reservationId.length > 0) {
+        queryParams['reservationId'] = reservationId;
+      }
+      return Object.keys(queryParams).length > 0
         ? { commands: ['/my-stuff'], queryParams }
         : { commands: ['/my-stuff'] };
     }

@@ -98,113 +98,35 @@
             @let ownerProposal = pendingProposalFromOther(reservation);
             @let myProposal = pendingProposalByMe(reservation);
             @let needsMe = ownerProposal !== null;
-            <div class="my-res__row" role="row" [class.my-res__row--alert]="needsMe">
-              <div role="cell">
-                <button type="button" class="my-res__item-btn" (click)="openDetail(reservation)">
-                  <strong>{{ reservation.item.name }}</strong>
-                </button>
-                <div class="my-res__muted">{{ locationName(reservation) }}</div>
-                @if (listPlacementPath(reservation); as path) {
-                  <div class="my-res__place">{{ path }}</div>
-                }
-              </div>
-              <div class="my-res__person" role="cell">
-                <app-user-avatar
-                  [displayName]="ownerName(reservation)"
-                  [photoUrl]="reservation.item.owner.profilePhotoUrl"
-                />
-                <span>{{ ownerName(reservation) }}</span>
-              </div>
-              <div role="cell">
-                <div>{{ rangeLabel(reservation) }}</div>
-                @if (ownerProposal; as proposal) {
-                  <div class="my-res__prop">
-                    Proposed: {{ proposalRangeLabel(proposal) }}
-                    <span class="my-res__muted">(from owner)</span>
-                  </div>
-                } @else if (myProposal; as proposal) {
-                  <div class="my-res__prop">
-                    Proposed: {{ proposalRangeLabel(proposal) }}
-                    <span class="my-res__muted">(by you)</span>
-                  </div>
-                }
-              </div>
-              <div role="cell">
-                <div [class.my-res__status--alert]="needsMe">{{ statusLabel(reservation) }}</div>
-                @if (myProposal && !needsMe) {
-                  <div class="my-res__muted my-res__waiting">
-                    Waiting on {{ ownerName(reservation) }}
-                  </div>
-                }
-                @if (
-                  reservation.conflictsWithAcceptedReservation && reservation.status === 'pending'
-                ) {
-                  <div class="my-res__warn">
-                    Another Accepted Reservation already covers part of this window.
-                  </div>
-                }
-              </div>
-              <div class="my-res__actions" role="cell">
-                @if (ownerProposal; as proposal) {
-                  <button
-                    class="my-res__btn my-res__btn--primary"
-                    type="button"
-                    [disabled]="actionBusy()"
-                    (click)="approve(proposal)"
-                  >
-                    Accept change
-                  </button>
-                  <button
-                    class="my-res__btn"
-                    type="button"
-                    [disabled]="actionBusy()"
-                    (click)="reject(proposal)"
-                  >
-                    Reject
-                  </button>
-                } @else if (myProposal; as proposal) {
-                  <button
-                    class="my-res__btn"
-                    type="button"
-                    [disabled]="actionBusy()"
-                    (click)="withdrawProposal(proposal)"
-                  >
-                    Withdraw proposal
-                  </button>
-                  <button class="my-res__btn" type="button" (click)="openDetail(reservation)">
-                    Trip detail
-                  </button>
-                } @else if (canWithdraw(reservation)) {
-                  <button
-                    class="my-res__btn"
-                    type="button"
-                    [disabled]="actionBusy()"
-                    (click)="withdraw(reservation)"
-                  >
-                    Withdraw
-                  </button>
-                  <button class="my-res__btn" type="button" (click)="openDetail(reservation)">
-                    Change dates…
-                  </button>
-                } @else if (canCancel(reservation)) {
-                  <button
-                    class="my-res__btn"
-                    type="button"
-                    [disabled]="actionBusy()"
-                    (click)="cancel(reservation)"
-                  >
-                    Cancel
-                  </button>
-                  <button class="my-res__btn" type="button" (click)="openDetail(reservation)">
-                    Trip detail
-                  </button>
-                } @else {
-                  <button class="my-res__linkish" type="button" (click)="openDetail(reservation)">
-                    View
-                  </button>
-                }
-              </div>
-            </div>
+            <div
+              app-my-reservation-row
+              [app-observe-visible]="true"
+              (rowVisible)="onRowVisible(reservation.id)"
+              [reservation]="reservation"
+              [ownerName]="ownerName(reservation)"
+              [ownerPhotoUrl]="reservation.item.owner.profilePhotoUrl"
+              [rangeLabel]="rangeLabel(reservation)"
+              [statusLabel]="statusLabel(reservation)"
+              [locationName]="locationName(reservation)"
+              [listPlacementPath]="listPlacementPath(reservation)"
+              [ownerProposal]="ownerProposal"
+              [myProposal]="myProposal"
+              [ownerProposalRangeLabel]="ownerProposal ? proposalRangeLabel(ownerProposal) : null"
+              [myProposalRangeLabel]="myProposal ? proposalRangeLabel(myProposal) : null"
+              [needsResponse]="needsMe"
+              [actionBusy]="actionBusy()"
+              [canWithdraw]="canWithdraw(reservation)"
+              [canCancel]="canCancel(reservation)"
+              [showConflict]="
+                reservation.conflictsWithAcceptedReservation && reservation.status === 'pending'
+              "
+              (openDetail)="openDetail($event)"
+              (withdraw)="withdraw($event)"
+              (cancel)="cancel($event)"
+              (approveProposal)="approve($event)"
+              (rejectProposal)="reject($event)"
+              (withdrawProposal)="withdrawProposal($event)"
+            ></div>
           }
         </div>
       }

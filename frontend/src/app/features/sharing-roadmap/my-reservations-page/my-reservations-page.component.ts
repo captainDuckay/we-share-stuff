@@ -1,13 +1,17 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   inject,
+  Injector,
   signal,
   viewChild,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormField, form, submit, validate } from '@angular/forms/signals';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 import { AppDialog } from '../../../core/dialog/app-dialog';
 import { Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { SharingApi } from '../../../core/api/sharing-api.service';
@@ -23,19 +27,30 @@ import {
   formatLocationLocalRange,
   isPastReservation,
   isUpcomingAcceptedReservation,
+  parseReservationsTab,
   pendingProposalForReservation,
   reservationCanProposeChange,
   reservationEndTimeError,
   reservationsNeedingBorrowerResponse,
+  reservationsTabContaining,
   reservationStartTimeError,
   type ReservationsTab,
   visibleStructuredPlacement,
 } from '../functions';
+import { MyReservationRow } from '../my-reservation-row/my-reservation-row';
 import { PlacementSnapshotDiagram } from '../placement-snapshot/placement-snapshot-diagram';
 
 @Component({
   selector: 'app-my-reservations-page',
-  imports: [AppDialog, FormField, PageLayout, PlacementSnapshotDiagram, RouterLink, UserAvatar],
+  imports: [
+    AppDialog,
+    FormField,
+    MyReservationRow,
+    PageLayout,
+    PlacementSnapshotDiagram,
+    RouterLink,
+    UserAvatar,
+  ],
   templateUrl: './my-reservations-page.component.html',
   styleUrl: './my-reservations-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,6 +60,9 @@ export class MyReservationsPageComponent {
   readonly #session = inject(SessionStore);
   readonly #inbox = inject(NotificationInboxStore);
   readonly #toast = inject(ToastStore);
+  readonly #route = inject(ActivatedRoute);
+  readonly #router = inject(Router);
+  readonly #injector = inject(Injector);
   // viewChild requires a TypeScript-accessible field (not # private).
   private readonly tripDialog = viewChild(AppDialog);
 
@@ -60,6 +78,18 @@ export class MyReservationsPageComponent {
   readonly selectedId = signal<string | null>(null);
   readonly dialogTitleId = 'my-reservations-trip-detail-title';
   #landed = false;
+  #scrolledFocusId: string | null = null;
+
+  readonly urlTab = toSignal(
+    this.#route.queryParamMap.pipe(map((params) => parseReservationsTab(params.get('tab')))),
+    {
+      initialValue: parseReservationsTab(this.#route.snapshot.queryParamMap.get('tab')),
+    },
+  );
+  readonly focusReservationId = toSignal(
+    this.#route.queryParamMap.pipe(map((params) => params.get('reservationId') ?? '')),
+    { initialValue: this.#route.snapshot.queryParamMap.get('reservationId') ?? '' },
+  );
 
   readonly proposeModel = signal({ startLocal: '', endLocal: '' });
   readonly proposeForm = form(this.proposeModel, (path) => {
@@ -129,15 +159,7 @@ export class MyReservationsPageComponent {
       this.hasSharingGroups.set(groups.sharingGroups.length > 0);
       this.reservations.set(response.reservations);
       await this.#loadProposals(response.reservations);
-      if (!this.#landed) {
-        this.tab.set(
-          defaultReservationsTab(
-            response.reservations.filter((r) => isUpcomingAcceptedReservation(r)).length,
-            response.reservations.filter((r) => r.status === 'pending').length,
-          ),
-        );
-        this.#landed = true;
-      }
+      this.#applyLandingTab(response.reservations);
       const selectedId = this.selectedId();
       if (
         selectedId &&
@@ -145,12 +167,8 @@ export class MyReservationsPageComponent {
       ) {
         this.selectedId.set(null);
       }
-      // Destination open: reservations surface covers requests and change proposals.
-      void this.#inbox.markDeepLinkRead({ surface: 'reservations' });
-      void this.#inbox.markSubjectsRead(
-        'reservation_change_proposal',
-        this.proposals().map((proposal) => proposal.id),
-      );
+      // Mark-read is intersection-driven on list rows — not full-surface batch on load.
+      this.#scrollFocusReservationIntoView();
     } catch {
       this.error.set('We could not load My reservations.');
       this.reservations.set([]);
@@ -167,6 +185,15 @@ export class MyReservationsPageComponent {
 
   selectTab(tab: ReservationsTab): void {
     this.tab.set(tab);
+    void this.#router.navigate([], {
+      relativeTo: this.#route,
+      queryParams: { tab },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  onRowVisible(reservationId: string): void {
+    void this.#inbox.markDeepLinkRead({ reservationId });
   }
 
   openDetail(reservation: Reservation): void {
@@ -203,7 +230,6 @@ export class MyReservationsPageComponent {
   }
 
   statusLabel(reservation: Reservation): string {
-    const userId = this.#session.user()?.id;
     return borrowerReservationStatusLabel(reservation, {
       ownerDisplayName: this.ownerName(reservation),
       pendingFromOwner: this.pendingProposalFromOther(reservation) !== null,
@@ -400,6 +426,62 @@ export class MyReservationsPageComponent {
     } else {
       this.proposalsError.set('');
     }
+  }
+
+  #applyLandingTab(reservations: readonly Reservation[]): void {
+    const focusId = this.focusReservationId();
+    const focused = focusId
+      ? (reservations.find((reservation) => reservation.id === focusId) ?? null)
+      : null;
+    if (focused) {
+      const nextTab = reservationsTabContaining(focused);
+      this.tab.set(nextTab);
+      void this.#router.navigate([], {
+        relativeTo: this.#route,
+        queryParams: { tab: nextTab, reservationId: focusId },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+      this.#landed = true;
+      return;
+    }
+    if (!this.#landed) {
+      const fromUrl = this.urlTab();
+      this.tab.set(
+        fromUrl ??
+          defaultReservationsTab(
+            reservations.filter((r) => isUpcomingAcceptedReservation(r)).length,
+            reservations.filter((r) => r.status === 'pending').length,
+          ),
+      );
+      if (!fromUrl) {
+        void this.#router.navigate([], {
+          relativeTo: this.#route,
+          queryParams: { tab: this.tab() },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }
+      this.#landed = true;
+    }
+  }
+
+  #scrollFocusReservationIntoView(): void {
+    const focusId = this.focusReservationId();
+    if (!focusId || this.#scrolledFocusId === focusId) return;
+    if (!this.reservations().some((reservation) => reservation.id === focusId)) return;
+    afterNextRender(
+      () => {
+        const el = document.querySelector(
+          `[data-reservation-id="${CSS.escape(focusId)}"]`,
+        );
+        if (el instanceof HTMLElement) {
+          el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          this.#scrolledFocusId = focusId;
+        }
+      },
+      { injector: this.#injector },
+    );
   }
 
   async #runAction(

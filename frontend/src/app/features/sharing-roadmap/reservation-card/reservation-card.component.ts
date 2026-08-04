@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { ObserveVisible } from '../../../core/dom/observe-visible';
 import { Reservation, ReservationChangeProposal } from '../../../core/api/model';
 import { UserAvatar } from '../../user-avatar/user-avatar/user-avatar';
 import {
@@ -13,6 +14,16 @@ export type ReservationActionMode = 'requester' | 'owner';
 @Component({
   selector: 'app-reservation-card',
   imports: [PlacementSnapshotDiagram, UserAvatar],
+  host: {
+    '[attr.data-reservation-id]': 'reservation().id',
+  },
+  hostDirectives: [
+    {
+      directive: ObserveVisible,
+      inputs: ['app-observe-visible'],
+      outputs: ['visible: cardVisible'],
+    },
+  ],
   templateUrl: './reservation-card.component.html',
   styleUrl: '../sharing-page/sharing-page.component.css',
 })
