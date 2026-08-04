@@ -145,10 +145,11 @@ export class MyReservationsPageComponent {
       ) {
         this.selectedId.set(null);
       }
-      // Destination open: mark Read by kind + subject (reservation id).
+      // Destination open: reservations surface covers requests and change proposals.
+      void this.#inbox.markDeepLinkRead({ surface: 'reservations' });
       void this.#inbox.markSubjectsRead(
-        'reservation_request',
-        response.reservations.map((reservation) => reservation.id),
+        'reservation_change_proposal',
+        this.proposals().map((proposal) => proposal.id),
       );
     } catch {
       this.error.set('We could not load My reservations.');
@@ -324,34 +325,58 @@ export class MyReservationsPageComponent {
       const reservation = this.selected();
       if (!reservation) return;
       const { startLocal, endLocal } = this.proposeModel();
-      const ok = await this.#runAction(async () => {
-        await this.#api.createChangeProposal(reservation.id, {
-          startLocal: startLocal.trim(),
-          endLocal: endLocal.trim(),
-        });
-      });
+      const ok = await this.#runAction(
+        async () => {
+          await this.#api.createChangeProposal(reservation.id, {
+            startLocal: startLocal.trim(),
+            endLocal: endLocal.trim(),
+          });
+        },
+        {
+          success: 'Reservation Change Proposal created.',
+          error: 'We could not propose those Reservation dates.',
+        },
+      );
       if (ok) this.closeDetail();
     });
   }
 
   async withdrawProposal(proposal: ReservationChangeProposal, closeDetail = false): Promise<void> {
-    const ok = await this.#runAction(async () => {
-      await this.#api.withdrawChangeProposal(proposal.id);
-    });
+    const ok = await this.#runAction(
+      async () => {
+        await this.#api.withdrawChangeProposal(proposal.id);
+      },
+      {
+        success: 'Reservation Change Proposal withdrawn.',
+        error: 'We could not withdraw that Reservation Change Proposal.',
+      },
+    );
     if (ok && closeDetail) this.closeDetail();
   }
 
   async approve(proposal: ReservationChangeProposal, closeDetail = false): Promise<void> {
-    const ok = await this.#runAction(async () => {
-      await this.#api.approveChangeProposal(proposal.id);
-    });
+    const ok = await this.#runAction(
+      async () => {
+        await this.#api.approveChangeProposal(proposal.id);
+      },
+      {
+        success: 'Reservation Change Proposal approved.',
+        error: 'We could not update that Reservation Change Proposal.',
+      },
+    );
     if (ok && closeDetail) this.closeDetail();
   }
 
   async reject(proposal: ReservationChangeProposal, closeDetail = false): Promise<void> {
-    const ok = await this.#runAction(async () => {
-      await this.#api.rejectChangeProposal(proposal.id);
-    });
+    const ok = await this.#runAction(
+      async () => {
+        await this.#api.rejectChangeProposal(proposal.id);
+      },
+      {
+        success: 'Reservation Change Proposal rejected.',
+        error: 'We could not update that Reservation Change Proposal.',
+      },
+    );
     if (ok && closeDetail) this.closeDetail();
   }
 

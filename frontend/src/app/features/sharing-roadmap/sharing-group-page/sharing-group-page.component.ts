@@ -218,13 +218,29 @@ export class SharingGroupPageComponent implements OnDestroy {
   }
 
   async approveChangeProposal(proposal: ReservationChangeProposal): Promise<void> {
-    await this.#api.approveChangeProposal(proposal.id);
-    await this.load();
+    try {
+      await this.#api.approveChangeProposal(proposal.id);
+      this.#toast.success('Reservation Change Proposal approved.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(
+        friendlyApiError(error, 'We could not update that Reservation Change Proposal.'),
+      );
+    }
   }
 
   async rejectChangeProposal(proposal: ReservationChangeProposal): Promise<void> {
-    await this.#api.rejectChangeProposal(proposal.id);
-    await this.load();
+    try {
+      await this.#api.rejectChangeProposal(proposal.id);
+      this.#toast.success('Reservation Change Proposal rejected.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(
+        friendlyApiError(error, 'We could not update that Reservation Change Proposal.'),
+      );
+    }
   }
 
   #revokePhotoPreview(): void {

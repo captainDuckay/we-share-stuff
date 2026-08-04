@@ -12,11 +12,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain import as_utc
-from app.models import Invitation, Item, Notification, Reservation, SharingGroup, User
+from app.models import (
+    Invitation,
+    Item,
+    Notification,
+    Reservation,
+    ReservationChangeProposal,
+    SharingGroup,
+    User,
+)
 from app.security import now_utc
 
 KIND_INVITATION = "invitation"
 KIND_RESERVATION_REQUEST = "reservation_request"
+KIND_RESERVATION_CHANGE_PROPOSAL = "reservation_change_proposal"
 
 
 async def upsert_notification(
@@ -347,6 +356,157 @@ async def emit_reservation_request_notifications(
             other_party=owner,
             create_if_missing=canceller_id != requester.id,
             recipient_is_owner=False,
+        )
+        return emitted
+
+    return emitted
+
+
+def reservation_change_proposal_deep_link(*, reservation_id: UUID) -> dict:
+    return {
+        "surface": "reservations",
+        "reservationId": str(reservation_id),
+    }
+
+
+def reservation_change_proposal_payload(
+    *,
+    proposal: ReservationChangeProposal,
+    reservation: Reservation,
+    item: Item,
+    proposer: User,
+) -> dict:
+    return {
+        "proposalId": str(proposal.id),
+        "reservationId": str(reservation.id),
+        "itemId": str(item.id),
+        "itemName": item.name,
+        "proposedByDisplayName": proposer.display_name,
+        "proposedStartAt": _iso_utc(proposal.proposed_start_at),
+        "proposedEndAt": _iso_utc(proposal.proposed_end_at),
+        "timezone": proposal.timezone,
+    }
+
+
+def reservation_change_proposal_summary(
+    *,
+    subject_status: str,
+    item_name: str,
+    proposed_by_display_name: str,
+    recipient_is_proposer: bool,
+) -> str:
+    approved = (
+        f"Your change to {item_name} was approved"
+        if recipient_is_proposer
+        else f"You approved the change to {item_name}"
+    )
+    rejected = (
+        f"Your change to {item_name} was rejected"
+        if recipient_is_proposer
+        else f"You rejected the change to {item_name}"
+    )
+    summaries = {
+        "pending": f"{proposed_by_display_name} proposed a change to {item_name}",
+        "approved": approved,
+        "rejected": rejected,
+        "void": f"Change proposal for {item_name} was voided",
+    }
+    return summaries.get(subject_status, f"Change proposal update for {item_name}")
+
+
+async def emit_reservation_change_proposal_notifications(
+    db: AsyncSession,
+    *,
+    proposal: ReservationChangeProposal,
+    reservation: Reservation,
+    item: Item,
+    owner: User,
+    requester: User,
+    actor_user_id: UUID | None,
+) -> list[Notification]:
+    """Upsert Reservation Change Proposal Notification rows per the v1 matrix.
+
+    - pending create → counterparty only
+    - approve/reject → counterparty update; proposer create at outcome
+    - void → update existing rows only (no void-only create)
+    """
+    status = proposal.status
+    proposer = (
+        requester if proposal.proposed_by_id == requester.id else owner
+    )
+    counterparty = owner if proposer.id == requester.id else requester
+    deep_link = reservation_change_proposal_deep_link(
+        reservation_id=reservation.id
+    )
+    payload = reservation_change_proposal_payload(
+        proposal=proposal,
+        reservation=reservation,
+        item=item,
+        proposer=proposer,
+    )
+    emitted: list[Notification] = []
+
+    async def emit_for(
+        recipient: User,
+        *,
+        create_if_missing: bool,
+        recipient_is_proposer: bool,
+    ) -> None:
+        summary = reservation_change_proposal_summary(
+            subject_status=status,
+            item_name=item.name,
+            proposed_by_display_name=proposer.display_name,
+            recipient_is_proposer=recipient_is_proposer,
+        )
+        attention = _attention_for_recipient(
+            actor_user_id=actor_user_id, recipient_user_id=recipient.id
+        )
+        row = await upsert_notification(
+            db,
+            recipient_user_id=recipient.id,
+            kind=KIND_RESERVATION_CHANGE_PROPOSAL,
+            subject_id=proposal.id,
+            subject_status=status,
+            summary=summary,
+            deep_link=deep_link,
+            payload=payload,
+            attention=attention,
+            create_if_missing=create_if_missing,
+        )
+        if row is not None:
+            emitted.append(row)
+
+    if status == "pending":
+        await emit_for(
+            counterparty,
+            create_if_missing=True,
+            recipient_is_proposer=False,
+        )
+        return emitted
+
+    if status in {"approved", "rejected"}:
+        await emit_for(
+            counterparty,
+            create_if_missing=True,
+            recipient_is_proposer=False,
+        )
+        await emit_for(
+            proposer,
+            create_if_missing=True,
+            recipient_is_proposer=True,
+        )
+        return emitted
+
+    if status == "void":
+        await emit_for(
+            counterparty,
+            create_if_missing=False,
+            recipient_is_proposer=False,
+        )
+        await emit_for(
+            proposer,
+            create_if_missing=False,
+            recipient_is_proposer=True,
         )
         return emitted
 

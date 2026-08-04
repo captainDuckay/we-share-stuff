@@ -146,19 +146,51 @@ export class MyStuffPageComponent {
   }
   async propose(reservation: Reservation, startLocal: string, endLocal: string): Promise<void> {
     if (!startLocal || !endLocal) return;
-    await this.#sharingApi.createChangeProposal(reservation.id, { startLocal, endLocal });
-    await this.load();
+    try {
+      await this.#sharingApi.createChangeProposal(reservation.id, { startLocal, endLocal });
+      this.#toast.success('Reservation Change Proposal created.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(
+        friendlyApiError(error, 'We could not propose those Reservation dates.'),
+      );
+    }
   }
   async approveProposal(proposal: ReservationChangeProposal): Promise<void> {
-    await this.#sharingApi.approveChangeProposal(proposal.id);
-    await this.load();
+    try {
+      await this.#sharingApi.approveChangeProposal(proposal.id);
+      this.#toast.success('Reservation Change Proposal approved.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(
+        friendlyApiError(error, 'We could not update that Reservation Change Proposal.'),
+      );
+    }
   }
   async rejectProposal(proposal: ReservationChangeProposal): Promise<void> {
-    await this.#sharingApi.rejectChangeProposal(proposal.id);
-    await this.load();
+    try {
+      await this.#sharingApi.rejectChangeProposal(proposal.id);
+      this.#toast.success('Reservation Change Proposal rejected.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(
+        friendlyApiError(error, 'We could not update that Reservation Change Proposal.'),
+      );
+    }
   }
   async withdrawProposal(proposal: ReservationChangeProposal): Promise<void> {
-    await this.#sharingApi.withdrawChangeProposal(proposal.id);
-    await this.load();
+    try {
+      await this.#sharingApi.withdrawChangeProposal(proposal.id);
+      this.#toast.success('Reservation Change Proposal withdrawn.');
+      void this.#inbox.refresh();
+      await this.load();
+    } catch (error) {
+      this.#toast.error(
+        friendlyApiError(error, 'We could not withdraw that Reservation Change Proposal.'),
+      );
+    }
   }
 }

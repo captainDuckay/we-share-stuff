@@ -980,3 +980,357 @@ def test_reservation_emission_failure_rolls_back_domain_mutation(
         for row in owner_inbox["notifications"]
         if row["kind"] == "reservation_request"
     ] == []
+
+
+# --- Reservation Change Proposal emission (kind catalog matrix) ---
+
+
+def _accept_reservation(
+    client: TestClient, owner: ApiSession, reservation_id: str
+) -> None:
+    headers = use_session(client, owner)
+    accepted = client.post(
+        f"/api/reservations/{reservation_id}/accept", headers=headers
+    )
+    assert accepted.status_code == 200
+
+
+def _create_change_proposal(
+    client: TestClient,
+    proposer: ApiSession,
+    reservation_id: str,
+    *,
+    start_local: str = "2099-09-02T10:00:00",
+    end_local: str = "2099-09-02T14:00:00",
+) -> dict:
+    headers = use_session(client, proposer)
+    response = client.post(
+        f"/api/reservations/{reservation_id}/change-proposals",
+        headers=headers,
+        json={"startLocal": start_local, "endLocal": end_local},
+    )
+    assert response.status_code == 201
+    return response.json()["changeProposal"]
+
+
+def _proposal_rows(inbox: dict) -> list[dict]:
+    return [
+        row
+        for row in inbox["notifications"]
+        if row["kind"] == "reservation_change_proposal"
+    ]
+
+
+def test_change_proposal_create_notifies_counterparty_only(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-create-owner@example.com",
+        "rcp-create-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, requester, reservation["id"])
+
+    owner_headers = use_session(client, owner)
+    owner_inbox = client.get("/api/notifications", headers=owner_headers).json()
+    rcp_rows = _proposal_rows(owner_inbox)
+    assert len(rcp_rows) == 1
+    row = rcp_rows[0]
+    assert row["subjectId"] == proposal["id"]
+    assert row["subjectStatus"] == "pending"
+    assert row["attention"] == "unread"
+    assert "Tent" in row["summary"]
+    assert "Bob" in row["summary"]
+    assert row["deepLink"]["surface"] == "reservations"
+    assert row["deepLink"]["reservationId"] == reservation["id"]
+    assert row["payload"]["proposalId"] == proposal["id"]
+    assert row["payload"]["reservationId"] == reservation["id"]
+    assert row["payload"]["itemId"] == item["id"]
+    assert row["payload"]["itemName"] == "Tent"
+    assert row["payload"]["proposedByDisplayName"] == "Bob"
+    assert row["payload"]["timezone"] == "Europe/Copenhagen"
+    assert "proposedStartAt" in row["payload"]
+    assert "proposedEndAt" in row["payload"]
+
+    requester_headers = use_session(client, requester)
+    requester_inbox = client.get("/api/notifications", headers=requester_headers).json()
+    assert _proposal_rows(requester_inbox) == []
+
+
+def test_change_proposal_approve_updates_counterparty_read_creates_proposer_unread(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-approve-owner@example.com",
+        "rcp-approve-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, requester, reservation["id"])
+    proposal_id = proposal["id"]
+
+    owner_headers = use_session(client, owner)
+    before = client.get("/api/notifications", headers=owner_headers).json()
+    owner_row_id = next(row["id"] for row in _proposal_rows(before))
+
+    approved = client.post(
+        f"/api/reservation-change-proposals/{proposal_id}/approve",
+        headers=owner_headers,
+    )
+    assert approved.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rcp = next(row for row in _proposal_rows(owner_after))
+    assert owner_rcp["id"] == owner_row_id
+    assert owner_rcp["subjectStatus"] == "approved"
+    assert owner_rcp["attention"] == "read"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    requester_rcp = next(row for row in _proposal_rows(requester_after))
+    assert requester_rcp["subjectId"] == proposal_id
+    assert requester_rcp["subjectStatus"] == "approved"
+    assert requester_rcp["attention"] == "unread"
+    assert "Tent" in requester_rcp["summary"]
+
+
+def test_change_proposal_reject_updates_counterparty_and_creates_proposer(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-reject-owner@example.com",
+        "rcp-reject-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, requester, reservation["id"])
+    proposal_id = proposal["id"]
+
+    owner_headers = use_session(client, owner)
+    rejected = client.post(
+        f"/api/reservation-change-proposals/{proposal_id}/reject",
+        headers=owner_headers,
+    )
+    assert rejected.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rcp = next(row for row in _proposal_rows(owner_after))
+    assert owner_rcp["subjectStatus"] == "rejected"
+    assert owner_rcp["attention"] == "read"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    requester_rcp = next(row for row in _proposal_rows(requester_after))
+    assert requester_rcp["subjectStatus"] == "rejected"
+    assert requester_rcp["attention"] == "unread"
+
+
+def test_change_proposal_owner_proposes_notifies_requester(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-owner-prop-owner@example.com",
+        "rcp-owner-prop-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, owner, reservation["id"])
+
+    requester_headers = use_session(client, requester)
+    requester_inbox = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    rcp_rows = _proposal_rows(requester_inbox)
+    assert len(rcp_rows) == 1
+    assert rcp_rows[0]["subjectId"] == proposal["id"]
+    assert rcp_rows[0]["attention"] == "unread"
+    assert "Ada" in rcp_rows[0]["summary"]
+    assert rcp_rows[0]["payload"]["proposedByDisplayName"] == "Ada"
+
+    owner_headers = use_session(client, owner)
+    owner_inbox = client.get("/api/notifications", headers=owner_headers).json()
+    assert _proposal_rows(owner_inbox) == []
+
+
+def test_change_proposal_void_on_cancel_updates_existing_no_new_for_missing(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-void-owner@example.com",
+        "rcp-void-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, requester, reservation["id"])
+    proposal_id = proposal["id"]
+
+    owner_headers = use_session(client, owner)
+    listed = client.get("/api/notifications", headers=owner_headers).json()
+    notification_id = next(row["id"] for row in _proposal_rows(listed))
+    mark = client.post(
+        f"/api/notifications/{notification_id}/read", headers=owner_headers
+    )
+    assert mark.status_code == 200
+
+    # Owner cancels accepted reservation → pending proposal voided.
+    cancelled = client.post(
+        f"/api/reservations/{reservation['id']}/cancel", headers=owner_headers
+    )
+    assert cancelled.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rcp = next(row for row in _proposal_rows(owner_after))
+    assert owner_rcp["id"] == notification_id
+    assert owner_rcp["subjectId"] == proposal_id
+    assert owner_rcp["subjectStatus"] == "void"
+    # Owner is actor on cancel → own-action Read on contentful update.
+    assert owner_rcp["attention"] == "read"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    # Proposer had no row at create time; void must not create a void-only row.
+    assert _proposal_rows(requester_after) == []
+
+
+def test_change_proposal_withdraw_voids_and_updates_counterparty(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-withdraw-owner@example.com",
+        "rcp-withdraw-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, requester, reservation["id"])
+    proposal_id = proposal["id"]
+
+    owner_headers = use_session(client, owner)
+    listed = client.get("/api/notifications", headers=owner_headers).json()
+    notification_id = next(row["id"] for row in _proposal_rows(listed))
+    client.post(f"/api/notifications/{notification_id}/read", headers=owner_headers)
+
+    requester_headers = use_session(client, requester)
+    withdrawn = client.post(
+        f"/api/reservation-change-proposals/{proposal_id}/withdraw",
+        headers=requester_headers,
+    )
+    assert withdrawn.status_code == 200
+
+    owner_headers = use_session(client, owner)
+    after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rcp = next(row for row in _proposal_rows(after))
+    assert owner_rcp["id"] == notification_id
+    assert owner_rcp["subjectStatus"] == "void"
+    assert owner_rcp["attention"] == "unread"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    assert _proposal_rows(requester_after) == []
+
+
+def test_change_proposal_upsert_in_place_one_row_per_proposal_recipient(
+    client: TestClient,
+) -> None:
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-upsert-owner@example.com",
+        "rcp-upsert-req@example.com",
+        owner_name="Ada",
+        requester_name="Bob",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+    proposal = _create_change_proposal(client, requester, reservation["id"])
+    proposal_id = proposal["id"]
+
+    owner_headers = use_session(client, owner)
+    before = client.get("/api/notifications", headers=owner_headers).json()
+    owner_row_id = next(row["id"] for row in _proposal_rows(before))
+
+    approved = client.post(
+        f"/api/reservation-change-proposals/{proposal_id}/approve",
+        headers=owner_headers,
+    )
+    assert approved.status_code == 200
+
+    owner_after = client.get("/api/notifications", headers=owner_headers).json()
+    owner_rcps = _proposal_rows(owner_after)
+    assert len(owner_rcps) == 1
+    assert owner_rcps[0]["id"] == owner_row_id
+    assert owner_rcps[0]["subjectStatus"] == "approved"
+
+    requester_headers = use_session(client, requester)
+    requester_after = client.get(
+        "/api/notifications", headers=requester_headers
+    ).json()
+    assert len(_proposal_rows(requester_after)) == 1
+
+
+def test_change_proposal_emission_failure_rolls_back_domain_mutation(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.routers.reservations as reservations_router
+
+    owner, requester, group_id, item = _shared_reservation_setup(
+        client,
+        "rcp-fail-owner@example.com",
+        "rcp-fail-req@example.com",
+    )
+    reservation = _request_reservation(client, requester, group_id, item["id"])
+    _accept_reservation(client, owner, reservation["id"])
+
+    async def boom(*_args, **_kwargs):
+        raise RuntimeError("emission failed")
+
+    monkeypatch.setattr(
+        reservations_router, "emit_reservation_change_proposal_notifications", boom
+    )
+
+    requester_headers = use_session(client, requester)
+    with pytest.raises(RuntimeError, match="emission failed"):
+        client.post(
+            f"/api/reservations/{reservation['id']}/change-proposals",
+            headers=requester_headers,
+            json={
+                "startLocal": "2099-11-01T10:00:00",
+                "endLocal": "2099-11-01T12:00:00",
+            },
+        )
+
+    owner_headers = use_session(client, owner)
+    listed = client.get(
+        f"/api/reservations/{reservation['id']}/change-proposals",
+        headers=owner_headers,
+    )
+    assert listed.status_code == 200
+    assert listed.json()["changeProposals"] == []
+
+    owner_inbox = client.get("/api/notifications", headers=owner_headers).json()
+    assert _proposal_rows(owner_inbox) == []
