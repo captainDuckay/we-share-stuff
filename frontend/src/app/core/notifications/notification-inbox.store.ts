@@ -1,7 +1,7 @@
 import { DOCUMENT } from '@angular/common';
 import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router } from '@angular/router';
+import { NavigationEnd, NavigationSkipped, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { NotificationsApi } from '../api/notifications-api.service';
 import {
@@ -54,12 +54,20 @@ export class NotificationInboxStore {
       }
     });
 
+    // Shell chrome: close the Center on any successful or same-URL navigation
+    // so rows stay plain routerLinks with no click side effects.
     this.#router.events
       .pipe(
-        filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        filter(
+          (event): event is NavigationEnd | NavigationSkipped =>
+            event instanceof NavigationEnd || event instanceof NavigationSkipped,
+        ),
         takeUntilDestroyed(this.#destroyRef),
       )
       .subscribe(() => {
+        if (this.#centerOpen()) {
+          this.closeCenter();
+        }
         if (this.#session.status() === 'authenticated') {
           void this.refresh();
         }
@@ -146,20 +154,10 @@ export class NotificationInboxStore {
   };
 
   /**
-   * Close the Center after a row is chosen for navigation.
-   * Does not mark Read — destination surfaces own the attention lifecycle.
-   * Navigation is owned by routerLink on the Notification Center row.
-   */
-  activateNotification = (): void => {
-    this.closeCenter();
-  };
-
-  /**
-   * Programmatic open: close Center chrome and navigate via deep_link
-   * without marking Read (for tests / non-link callers).
+   * Programmatic open via deep_link without marking Read.
+   * Center close is owned by the router navigation subscription (shell chrome).
    */
   openNotification = async (notification: Notification): Promise<void> => {
-    this.activateNotification();
     const target = resolveDeepLink(notification.deepLink);
     if (target) {
       await this.#router.navigate([...target.commands], {
