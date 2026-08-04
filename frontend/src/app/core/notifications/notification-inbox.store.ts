@@ -145,12 +145,21 @@ export class NotificationInboxStore {
     }
   };
 
-  openNotification = async (notification: Notification): Promise<void> => {
-    const commands = deepLinkCommands(notification.deepLink);
+  /**
+   * Mark the row Read (if Unread) and close the Center.
+   * Navigation is owned by routerLink on the Notification Center row.
+   */
+  activateNotification = (notification: Notification): void => {
     if (notification.attention === 'unread') {
       void this.markRead(notification.id);
     }
     this.closeCenter();
+  };
+
+  /** Programmatic open: activate + navigate via deep_link (for tests / non-link callers). */
+  openNotification = async (notification: Notification): Promise<void> => {
+    this.activateNotification(notification);
+    const commands = deepLinkCommands(notification.deepLink);
     if (commands) {
       await this.#router.navigate([...commands]);
     }
