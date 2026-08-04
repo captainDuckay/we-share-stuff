@@ -50,7 +50,7 @@ const createStore = (
   const status = signal<SessionStatus>(initialStatus);
   TestBed.configureTestingModule({
     providers: [
-      provideRouter([]),
+      provideRouter([{ path: '**', children: [] }]),
       NotificationInboxStore,
       { provide: NotificationsApi, useValue: api },
       {
@@ -182,16 +182,18 @@ describe('NotificationInboxStore', () => {
     await expect(store.markRead('n1')).resolves.toBeUndefined();
   });
 
-  it('activateNotification closes the Center without marking Read', async () => {
+  it('closes the Center on navigation without marking Read', async () => {
     const api = createFakeApi();
     const { store } = createStore(api);
+    const router = TestBed.inject(Router);
     store.openCenter();
     await vi.waitFor(() => expect(store.centerOpen()).toBe(true));
+    api.markRead.mockClear();
 
-    store.activateNotification();
+    await router.navigateByUrl('/home');
 
-    expect(api.markRead).not.toHaveBeenCalled();
     expect(store.centerOpen()).toBe(false);
+    expect(api.markRead).not.toHaveBeenCalled();
   });
 
   it('openNotification navigates deep link without marking Read', async () => {
@@ -208,7 +210,6 @@ describe('NotificationInboxStore', () => {
     await store.openNotification(row);
 
     expect(api.markRead).not.toHaveBeenCalled();
-    expect(store.centerOpen()).toBe(false);
     expect(navigate).toHaveBeenCalledWith(['/sharing-groups', 'g1'], {
       queryParams: undefined,
     });
